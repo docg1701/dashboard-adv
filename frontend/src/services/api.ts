@@ -93,7 +93,7 @@ export interface TaskStatusResponse {
 
 // Document Query
 export interface DocumentQueryPayload {
-  query_text: string;
+  user_query: string; // Changed from query_text to match backend Pydantic model
 }
 
 export interface DocumentQueryResponse {

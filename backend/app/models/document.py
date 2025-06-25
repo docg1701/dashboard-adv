@@ -1,5 +1,6 @@
 from sqlalchemy import Integer, String, Text, ForeignKey, DateTime, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector  # Import Vector type
 from app.core.database import Base
 from typing import List, Optional
 from datetime import datetime
@@ -25,8 +26,8 @@ class DocumentChunk(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     # New columns for storing embeddings and a logical chunk ID from the transcriber service
-    embedding: Mapped[Optional[str]] = mapped_column(Text, nullable=True) # Placeholder for embedding, ideally pgvector.VECTOR if used
-    logical_chunk_id: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, index=True) # For the ID like "doc1_p1_c1"
+    embedding: Mapped[Optional[List[float]]] = mapped_column(Vector(1536), nullable=True) # Using Vector type
+    logical_chunk_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True, index=True, nullable=True) # For the ID like "doc1_p1_c1"
 
     document: Mapped["Document"] = relationship("Document", back_populates="chunks")
 

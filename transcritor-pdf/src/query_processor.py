@@ -127,14 +127,14 @@ async def get_llm_answer_with_context(
         logger.error(f"Erro de conexão ao buscar chunks de contexto: {ce}", exc_info=True)
         error_message = f"Erro de conexão com o banco de dados ao buscar contexto: {str(ce)}"
         answer = "Erro ao buscar contexto no banco de dados. Por favor, tente novamente mais tarde."
-    except llm_client.ValueError as llm_val_err: # Specific ValueError from llm_client (e.g. API key)
-        logger.error(f"Erro de configuração do cliente LLM: {llm_val_err}", exc_info=True)
-        error_message = f"Erro de configuração do LLM: {str(llm_val_err)}"
-        answer = "Erro na configuração do serviço de linguagem. Verifique as credenciais."
-    except Exception as e: # Catch any other unexpected errors
-        logger.error(f"Erro inesperado durante o processamento da query: {e}", exc_info=True)
-        error_message = f"Erro inesperado: {str(e)}"
-        answer = "Ocorreu um erro inesperado ao processar sua pergunta. Por favor, tente novamente mais tarde."
+    except Exception as e: # Catch all other exceptions, including OpenAI connection errors
+        logger.error(f"An unexpected error occurred: {e}", exc_info=True)
+        if "api key" in str(e).lower():
+            error_message = f"Erro de configuração do LLM: {str(e)}"
+            answer = "Erro na configuração do serviço de linguagem. Verifique as credenciais."
+        else:
+            error_message = f"Erro inesperado: {str(e)}"
+            answer = "Ocorreu um erro inesperado ao processar sua pergunta. Por favor, tente novamente mais tarde."
 
     return {
         "answer": answer,

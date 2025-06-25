@@ -147,12 +147,7 @@ async def handle_document_query(document_id: str, user_query: str, user_id: int)
             )
             response.raise_for_status()
             query_response_data = response.json()
-            return {
-                "message": "Query successfully processed by transcriber.",
-                "transcriber_data": query_response_data,
-                "original_document_id": document_id,
-                "queried_by_user_id": user_id
-            }
+            return query_response_data
         except httpx.HTTPStatusError as e:
             # Log e.response.text for server-side debugging
             # print(f"Transcriber query service error: {e.response.text}") # Example logging

@@ -30,61 +30,33 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # --- Constants for Environment Variables ---
-# Standard names are used where possible for broader compatibility.
-# The user should map their OpenRouter (or other provider's) key/URL/model
-# to these variable names in the .env file.
-OPENAI_API_KEY_VAR = "OPENAI_API_KEY"        # Expected var for the API key
-OPENAI_BASE_URL_VAR = "OPENAI_BASE_URL"      # Expected var for the API base URL
-MODEL_NAME_VAR = "OPENAI_MODEL_NAME"         # Preferred var for the model name
-ALT_MODEL_NAME_VAR = "OPENROUTER_MODEL_NAME" # Alternative var for model name
+OPENAI_API_KEY_VAR = "OPENAI_API_KEY"
+OPENAI_BASE_URL_VAR = "OPENAI_BASE_URL"
+MODEL_NAME_VAR = "OPENAI_MODEL_NAME"
 
-# Default values if environment variables are not set
-DEFAULT_OPENROUTER_BASE_URL = "[https://openrouter.ai/api/v1](https://openrouter.ai/api/v1)" # Common OpenRouter URL
-DEFAULT_MODEL_NAME = "google/gemini-flash"                   # Example default model
+# --- Sensible Defaults for OpenAI ---
+DEFAULT_OPENAI_BASE_URL = "https://api.openai.com/v1"
+DEFAULT_MODEL_NAME = "gpt-3.5-turbo"
 
 # --- LLM Client Initialization Logic ---
-
 def load_api_config() -> tuple[str, str, str]:
-    """Loads API configuration (Key, Base URL, Model Name) from environment variables.
-
-    Searches for a `.env` file up the directory tree using `find_dotenv` and loads it.
-    Retrieves API key, base URL, and model name using predefined environment variable
-    names, applying defaults for URL and model name if not found.
+    """Loads API configuration directly from environment variables.
 
     Returns:
-        A tuple containing:
-            - api_key (str): The loaded API key.
-            - base_url (str): The loaded or default API base URL.
-            - model_name (str): The loaded or default model name.
+        A tuple containing: api_key, base_url, model_name.
 
     Raises:
-        ValueError: If the mandatory `OPENAI_API_KEY` environment variable is not found.
-                    Logs a critical error before raising.
+        ValueError: If the mandatory OPENAI_API_KEY is not found.
     """
-    env_path = find_dotenv()
-    if env_path:
-        logger.info(f"Loading environment variables from: {env_path}")
-        # override=True ensures that variables in .env take precedence over existing system env vars
-        load_dotenv(dotenv_path=env_path, override=True)
-    else:
-        logger.warning(".env file not found. Relying on system environment variables.")
-
-    # API Key (Mandatory)
     api_key = os.getenv(OPENAI_API_KEY_VAR)
     if not api_key:
-        error_msg = (f"Required environment variable '{OPENAI_API_KEY_VAR}' not found. "
-                     f"Please set it in your .env file or system environment.")
-        logger.critical(error_msg) # Critical because the application cannot proceed
+        error_msg = f"Required environment variable '{OPENAI_API_KEY_VAR}' not found."
+        logger.critical(error_msg)
         raise ValueError(error_msg)
 
-    # Base URL (Optional, with Default)
-    base_url = os.getenv(OPENAI_BASE_URL_VAR, DEFAULT_OPENROUTER_BASE_URL)
+    base_url = os.getenv(OPENAI_BASE_URL_VAR, DEFAULT_OPENAI_BASE_URL)
+    model_name = os.getenv(MODEL_NAME_VAR, DEFAULT_MODEL_NAME)
 
-    # Model Name (Optional, with Default)
-    # Check preferred name first, then alternative, then default
-    model_name = os.getenv(MODEL_NAME_VAR) or os.getenv(ALT_MODEL_NAME_VAR, DEFAULT_MODEL_NAME)
-
-    # Log loaded config (excluding the sensitive API key)
     logger.info(f"API Config Loaded: Base URL='{base_url}', Model Name='{model_name}'")
     return api_key, base_url, model_name
 

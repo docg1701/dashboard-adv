@@ -11,18 +11,34 @@ import {
   Grid,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { uploadDocumentForAnalysis, getTaskStatus, DocumentUploadResponse, TaskStatusResponse } from '../../services/api'; // Adjust path as needed
+// Import postDocumentQuery and its related types
+import {
+  uploadDocumentForAnalysis,
+  getTaskStatus,
+  postDocumentQuery, // Added
+  DocumentUploadResponse,
+  TaskStatusResponse,
+  DocumentQueryPayload, // Added
+  DocumentQueryResponse // Added
+} from '../../services/api'; // Adjust path as needed
 
-const PdfTranscriberTesterPage: React.FC = () => {
+const TranscritorPdfTesterPage: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [processedFilename, setProcessedFilename] = useState<string | null>(null); // For storing the name of the processed file
   const [transcriptionStatus, setTranscriptionStatus] = useState<string | null>(null);
   const [transcriptionResult, setTranscriptionResult] = useState<string | null>(null);
   const [pollingError, setPollingError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isPolling, setIsPolling] = useState<boolean>(false);
+
+  // State for query functionality
+  const [query, setQuery] = useState<string>('');
+  const [queryResult, setQueryResult] = useState<string | null>(null);
+  const [queryError, setQueryError] = useState<string | null>(null);
+  const [isQuerying, setIsQuerying] = useState<boolean>(false);
 
   const { enqueueSnackbar } = useSnackbar();
 
@@ -53,11 +69,16 @@ const PdfTranscriberTesterPage: React.FC = () => {
       const response: DocumentUploadResponse = await uploadDocumentForAnalysis(selectedFile);
       setUploadStatus('success');
       enqueueSnackbar(response.message || 'File uploaded successfully! Transcription started.', { variant: 'success' });
-      if (response.transcriber_data && response.transcriber_data.task_id) {
+      if (response.transcriber_data && response.transcriber_data.task_id && selectedFile) {
         setTaskId(response.transcriber_data.task_id);
+        setProcessedFilename(selectedFile.name); // Store the filename
+        // Reset query states for new upload
+        setQuery('');
+        setQueryResult(null);
+        setQueryError(null);
       } else {
         setUploadStatus('error');
-        setUploadError('Task ID not found in upload response.');
+        setUploadError('Task ID not found in upload response or file not selected.');
         enqueueSnackbar('Task ID not found in upload response.', { variant: 'error' });
       }
     } catch (error: any) {
@@ -123,12 +144,51 @@ const PdfTranscriberTesterPage: React.FC = () => {
     };
   }, [taskId, pollStatus, transcriptionStatus]);
 
+  const handleQuerySubmit = async () => {
+    if (!processedFilename || !query.trim()) {
+      enqueueSnackbar('No document processed or query is empty.', { variant: 'warning' });
+      return;
+    }
+
+    setIsQuerying(true);
+    setQueryError(null);
+    setQueryResult(null);
+
+    try {
+      const payload: DocumentQueryPayload = { user_query: query }; // Changed query_text to user_query
+      // The documentId for postDocumentQuery is the filename, which is stored in processedFilename.
+      // The backend /documents/query/{document_id} endpoint (proxied) ultimately maps to
+      // transcritor-pdf's /query-document/{document_filename}
+      const response: DocumentQueryResponse = await postDocumentQuery(processedFilename, payload);
+
+      // The DocumentQueryResponse interface in api.ts expects:
+      // { answer: string; query_id: string; } (query_id is optional based on actual transcritor response)
+      // The actual response from transcritor-pdf /query-document is:
+      // {"document_id": string, "query": string, "answer": string}
+      // So, response.answer should be directly usable.
+      if (response && typeof response.answer === 'string') {
+        setQueryResult(response.answer);
+        enqueueSnackbar('Query successful!', { variant: 'success' });
+      } else {
+        setQueryError("Received an unexpected response format from the query endpoint.");
+        setQueryResult(JSON.stringify(response, null, 2)); // Show what was received
+        enqueueSnackbar('Unexpected response format from query.', { variant: 'error' });
+      }
+
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to submit query.';
+      setQueryError(errorMessage);
+      enqueueSnackbar(errorMessage, { variant: 'error' });
+    } finally {
+      setIsQuerying(false);
+    }
+  };
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
-          PDF Transcriber Tester
+          Transcritor PDF Tester
         </Typography>
 
         <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
@@ -190,9 +250,52 @@ const PdfTranscriberTesterPage: React.FC = () => {
             />
           </Box>
         )}
+
+        {/* Query Section - Appears after successful transcription */}
+        {processedFilename && transcriptionStatus === 'SUCCESS' && (
+          <Box sx={{ mt: 4, p: 2, border: '1px solid blue', borderRadius: 1 }}>
+            <Typography variant="h6" gutterBottom>
+              Query Document: {processedFilename}
+            </Typography>
+            <TextField
+              label="Enter your query"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              fullWidth
+              variant="outlined"
+              size="small"
+              sx={{ mb: 1 }}
+            />
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleQuerySubmit}
+              disabled={!query.trim() || isQuerying || isPolling}
+              startIcon={isQuerying ? <CircularProgress size={20} color="inherit" /> : null}
+            >
+              {isQuerying ? 'Querying...' : 'Submit Query'}
+            </Button>
+
+            {isQuerying && <CircularProgress size={24} sx={{ display: 'block', mt: 2, mx: 'auto' }} />}
+
+            {queryError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                Query Error: {queryError}
+              </Alert>
+            )}
+            {queryResult && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle1">Query Answer:</Typography>
+                <Paper elevation={2} sx={{ p: 2, mt: 1, maxHeight: '200px', overflowY: 'auto', whiteSpace: 'pre-wrap', backgroundColor: '#f9f9f9' }}>
+                  {queryResult}
+                </Paper>
+              </Box>
+            )}
+          </Box>
+        )}
       </Paper>
     </Container>
   );
 };
 
-export default PdfTranscriberTesterPage;
+export default TranscritorPdfTesterPage;

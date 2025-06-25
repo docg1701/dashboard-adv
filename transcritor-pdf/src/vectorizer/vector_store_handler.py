@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 from typing import List, Dict, Any, Optional
+import json # Ensure json is imported
 try:
     import asyncpg
 except ImportError:
@@ -35,7 +36,7 @@ def load_db_config() -> Dict[str, Optional[str]]:
     logger.info(f"DB Config Loaded: Host={config['host']}, Port={config['port']}, DB={config['database']}, User={config['user']}")
     return config
 
-async def add_chunks_to_vector_store(rag_chunks: List[Dict[str, Any]]):
+async def add_chunks_to_vector_store(document_id: int, rag_chunks: List[Dict[str, Any]]):
     """Adds or updates text chunks, metadata, and embeddings in PostgreSQL using asyncpg.
 
     Connects asynchronously, starts a transaction, and attempts to upsert each
@@ -66,14 +67,14 @@ async def add_chunks_to_vector_store(rag_chunks: List[Dict[str, Any]]):
         conn = await asyncpg.connect(**db_config)
         logger.info("Database connection successful (asyncpg).")
 
-        table_name = "documents" # Changed from os.getenv("DB_VECTOR_TABLE", "your_vector_table")
+        table_name = "document_chunks" # Target the correct table for chunks
         # chunk_id_col, text_col, metadata_col are implicitly correct. vector_col changed.
         # For simplicity, direct usage in query string is preferred over maintaining these variables if fixed.
 
         insert_query = f"""
-            INSERT INTO {table_name} (chunk_id, text_content, metadata, embedding)
-            VALUES ($1, $2, $3, $4) ON CONFLICT (chunk_id) DO UPDATE SET
-            text_content=EXCLUDED.text_content, metadata=EXCLUDED.metadata, embedding=EXCLUDED.embedding;
+            INSERT INTO {table_name} (document_id, logical_chunk_id, chunk_text, embedding, chunk_order)
+            VALUES ($1, $2, $3, $4, $5) ON CONFLICT (logical_chunk_id) DO UPDATE SET
+            document_id=EXCLUDED.document_id, chunk_text=EXCLUDED.chunk_text, embedding=EXCLUDED.embedding, chunk_order=EXCLUDED.chunk_order;
         """
         logger.info(f"Preparing to insert/update data into table '{table_name}'...")
 
@@ -81,27 +82,32 @@ async def add_chunks_to_vector_store(rag_chunks: List[Dict[str, Any]]):
         async with conn.transaction():
             logger.debug("Transaction started.")
             for chunk in rag_chunks:
-                chunk_id, text_content, metadata, embedding = (
-                    chunk.get("chunk_id"), chunk.get("text_content"), chunk.get("metadata"), chunk.get("embedding")
-                )
-                if not chunk_id or not text_content or metadata is None or embedding is None:
-                    logger.warning(f"Skipping chunk ID '{chunk_id}' due to missing data."); skipped_count += 1; continue
+                logical_chunk_id = chunk.get("chunk_id") # This is the UUID from processing.py
+                text_content = chunk.get("text_content")
+                embedding = chunk.get("embedding")
+                metadata = chunk.get("metadata", {})
+                chunk_order = metadata.get("original_chunk_index_on_page", 0) # Default to 0 if not present
+
+                if not logical_chunk_id or not text_content or embedding is None:
+                    logger.warning(f"Skipping chunk ID '{logical_chunk_id}' due to missing essential data (ID, text, or embedding)."); skipped_count += 1; continue
+
                 try:
-                    metadata_to_insert = metadata # Try passing dict directly
-                    if isinstance(embedding, list) and all(isinstance(x, (int, float)) for x in embedding):
-                        embedding_to_insert = embedding # Try passing list directly
-                    else: raise ValueError("Invalid embedding format")
+                    if not (isinstance(embedding, list) and all(isinstance(x, (int, float)) for x in embedding)):
+                        # If embedding is not a list of numbers, raise error.
+                        raise ValueError("Invalid embedding format, expected list of numbers for VECTOR column")
+                    # Convert the list to its JSON string representation for asyncpg
+                    embedding_to_insert = json.dumps(embedding)
                 except Exception as fmt_e:
-                    logger.warning(f"Skipping chunk ID '{chunk_id}' due to data formatting error: {fmt_e}", exc_info=True)
+                    logger.warning(f"Skipping chunk ID '{logical_chunk_id}' due to data formatting error for embedding: {fmt_e}", exc_info=True)
                     skipped_count += 1; continue
 
                 # --- Execute Query (Inner try removed) ---
                 # Let asyncpg.PostgresError propagate to the outer handler if execute fails
-                logger.debug(f"Executing upsert for chunk ID: {chunk_id}")
-                await conn.execute(insert_query, chunk_id, text_content, metadata_to_insert, embedding_to_insert)
+                logger.debug(f"Executing upsert for logical_chunk_id: {logical_chunk_id}")
+                await conn.execute(insert_query, document_id, logical_chunk_id, text_content, embedding_to_insert, chunk_order)
                 inserted_count += 1
             # Transaction commits automatically if loop finishes without error
-            logger.info(f"Transaction commit successful. Added/Updated {inserted_count} chunks.")
+            logger.info(f"Transaction commit successful. Added/Updated {inserted_count} chunks for document_id {document_id}.")
 
         if skipped_count > 0: logger.warning(f"Skipped {skipped_count} chunks due to validation/formatting.")
 
@@ -164,20 +170,28 @@ async def search_similar_chunks(
         conn = await asyncpg.connect(**db_config)
         logger.info("Database connection successful for search (asyncpg).")
 
-        table_name = "documents"  # Ensure this matches your actual table name
-        params: List[Any] = [query_embedding]
+        table_name = "document_chunks"  # Use the correct table for chunks
+        params: List[Any] = [json.dumps(query_embedding)]
 
         # Base query using cosine distance operator <=>
-        sql_query_parts = [
-            f"SELECT chunk_id, text_content, metadata, embedding <=> $1 AS distance FROM {table_name}"
-        ]
+        # Selecting logical_chunk_id, chunk_text, and chunk_order.
+        # The query now joins document_chunks with documents to filter by file_name.
+        
         param_idx = 2  # Start next param index from $2 ($1 is query_embedding)
-
+        
         if document_filename:
-            # Assumes metadata is a JSONB column and 'filename' is a top-level key in it.
-            sql_query_parts.append(f"WHERE metadata->>'filename' = ${param_idx}")
+            sql_query_parts = [
+                f"SELECT dc.logical_chunk_id, dc.chunk_text, dc.chunk_order, dc.embedding <=> $1 AS distance",
+                f"FROM document_chunks dc",
+                f"JOIN documents d ON dc.document_id = d.id",
+                f"WHERE d.file_name = ${param_idx}",
+            ]
             params.append(document_filename)
             param_idx += 1
+        else:
+            sql_query_parts = [
+                f"SELECT logical_chunk_id, chunk_text, chunk_order, embedding <=> $1 AS distance FROM {table_name}"
+            ]
 
         sql_query_parts.append(f"ORDER BY distance ASC LIMIT ${param_idx}")
         params.append(top_k)
@@ -195,18 +209,14 @@ async def search_similar_chunks(
             # Similarity score = 1 - distance.
             similarity_score = 1 - row['distance']
 
-            metadata_content = row['metadata']
-            if isinstance(metadata_content, str): # Check if metadata is a string
-                try:
-                    metadata_content = json.loads(metadata_content) # Try to parse it as JSON
-                except json.JSONDecodeError:
-                    # If parsing fails, log a warning and keep the original string content
-                    logger.warning(f"Failed to parse metadata JSON for chunk_id {row['chunk_id']}. Content: '{metadata_content[:100]}...'")
-
+            # metadata_content is no longer directly selected.
+            # We return chunk_order instead.
+            # If more metadata is needed, a JOIN with 'documents' table and specific selection is required.
             results.append({
-                "chunk_id": row['chunk_id'],
-                "text_content": row['text_content'],
-                "metadata": metadata_content,
+                "chunk_id": row['logical_chunk_id'], # Use logical_chunk_id
+                "text_content": row['chunk_text'], # Changed from row['text_content'] to row['chunk_text']
+                "chunk_order": row['chunk_order'], # Added chunk_order
+                # "metadata": {}, # Placeholder if metadata structure is expected by caller
                 "similarity_score": similarity_score
             })
 
@@ -231,15 +241,16 @@ if __name__ == "__main__":
     logger.info("--- Running vector_store_handler.py (asyncpg) directly for testing ---")
     logger.warning("This test block WILL attempt to connect to and write to the database.")
     embedding_dim = 1536
+    sample_document_id = 999  # Example document_id for testing
     sample_rag_chunks_with_embeddings = [
         {"chunk_id": "async_test_001", "text_content": "Async test chunk 1.", "metadata": {"s": "t1a"}, "embedding": [0.5] * embedding_dim},
         {"chunk_id": "async_test_002", "text_content": "Async test chunk 2.", "metadata": {"s": "t2a"}, "embedding": [0.6] * embedding_dim}
     ]
-    logger.info(f"Sample Chunks to Add/Update: {len(sample_rag_chunks_with_embeddings)}")
+    logger.info(f"Sample Chunks to Add/Update: {len(sample_rag_chunks_with_embeddings)} for document_id {sample_document_id}")
     confirm = input("\nProceed with test database insertion/update? (yes/no): ")
     if confirm.lower() == 'yes':
         logger.info("Proceeding with test database operation...")
-        try: asyncio.run(add_chunks_to_vector_store(sample_rag_chunks_with_embeddings))
+        try: asyncio.run(add_chunks_to_vector_store(sample_document_id, sample_rag_chunks_with_embeddings))
         except ConnectionError as e: logger.error(f"Test failed due to connection error: {e}")
         except Exception as e: logger.error(f"An unexpected error occurred during testing: {e}", exc_info=True)
         else: logger.info("Test database operation process completed (check database).")

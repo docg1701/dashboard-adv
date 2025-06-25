@@ -70,16 +70,16 @@ const moduleRegistry: ModuleRegistry = {
       },
     ],
   },
-  pdfTranscriberTester: {
-    name: 'Transcritor PDF - Tester',
-    basePath: '/pdf-transcriber',
+  transcritorPdfTester: { // Changed key
+    name: 'Transcritor PDF Tester', // Changed display name
+    basePath: '/transcritor-pdf-tester', // Optional: change base path for consistency
     navIcon: DescriptionIcon,
-    navText: 'Transcritor PDF', // Adjusted navText for brevity if needed, or use full name
+    navText: 'Transcritor PDF Tester', // Changed nav text
     adminOnly: false,
     routes: [
       {
         path: '/',
-        component: React.lazy(() => import('../modules/pdf_transcriber_tester/PdfTranscriberTesterPage')),
+        component: React.lazy(() => import('../modules/transcritor_pdf_tester/TranscritorPdfTesterPage')), // Updated import path
         exact: true,
       },
     ],

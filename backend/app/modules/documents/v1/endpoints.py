@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_active_user, get_db
 from app.models.user import User
 from .. import services # services.py is one level up
-from .schemas import TaskStatusResponse, DocumentQueryRequest, GatewayDocumentUploadResponse, GatewayDocumentQueryResponse, DocumentListResponse, DocumentRead # Added GatewayDocumentQueryResponse
+from .schemas import TaskStatusResponse, DocumentQueryRequest, GatewayDocumentUploadResponse, GatewayDocumentQueryResponse, DocumentListResponse, DocumentRead, TranscriberQueryData
 
 router = APIRouter()
 
@@ -24,7 +24,7 @@ async def upload_document(
 ):
     return await services.handle_file_upload(file, current_user.id, db)
 
-@router.post("/query/{document_id}", summary="Query a processed document", tags=["Documents v1"], response_model=GatewayDocumentQueryResponse)
+@router.post("/query/{document_id}", summary="Query a processed document", tags=["Documents v1"], response_model=TranscriberQueryData)
 async def query_document_v1(
     document_id: str,
     request_data: DocumentQueryRequest,

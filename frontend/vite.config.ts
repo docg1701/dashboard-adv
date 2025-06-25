@@ -21,6 +21,7 @@ export default defineConfig({
     css: false, // Disable CSS processing for tests
     testTimeout: 30000, // Increase timeout to 30 seconds
     include: ['src/modules/**/*.{test,spec}.?(c|m)[jt]s?(x)', 'src/components/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
+    tsconfig: './tsconfig.spec.json',
   },
   server: {
     proxy: {
