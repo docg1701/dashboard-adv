@@ -1,3 +1,0 @@
-# Este arquivo existe para garantir que o diretório .logs/task_summaries seja versionado.
-# O conteúdo de .logs/task_summaries (exceto este arquivo)
-# deve ser ignorado pelo Git se houver um padrão mais geral para .logs/* no .gitignore.
