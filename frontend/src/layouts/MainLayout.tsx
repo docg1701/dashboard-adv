@@ -239,14 +239,7 @@ const MainLayout: React.FC = () => {
               onClick={handleDrawerClose}
               exact={true}
             />
-            <NavListItem
-              to="/analisador-documentos"
-              primary="Analisador de Documentos"
-              icon={<DescriptionIcon />}
-              open={open}
-              isSmallScreen={isSmallScreen}
-              onClick={handleDrawerClose}
-            />
+            
 
             {Object.values(moduleRegistry).filter(module => !module.adminOnly || (module.adminOnly && isAdmin)).map((module: ModuleConfig) => {
               const IconComponent = module.navIcon as SvgIconComponent | undefined;

@@ -8,7 +8,7 @@ const MainLayout = React.lazy(() => import('./layouts/MainLayout'));
 const Login = React.lazy(() => import('./components/Login').then(module => ({ default: module.Login })));
 const AdminUsers = React.lazy(() => import('./components/AdminUsers'));
 const HomePage = React.lazy(() => import('./pages/HomePage'));
-const AnalisadorDocumentosPage = React.lazy(() => import('./pages/AnalisadorDocumentosPage'));
+
 
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { getModuleRegistry, ModuleConfig } from './config/moduleRegistry'; // Ensure correct path
@@ -72,7 +72,7 @@ function App() {
                 >
                   <Route index element={<HomePage />} />
                   <Route path="admin/users" element={<ProtectedRoute roles={['admin']}><AdminUsers /></ProtectedRoute>} />
-                  <Route path="analisador-documentos" element={<AnalisadorDocumentosPage />} />
+                  
                   {/* Dynamic module routes */}
                   {Object.values(moduleRegistry).map((module: ModuleConfig) =>
                     module.routes.map((route) => (
