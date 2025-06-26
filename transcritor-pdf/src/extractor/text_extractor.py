@@ -16,28 +16,24 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from .llm_client import get_llm_client
 # Import necessary Langchain components
 from langchain_core.messages import HumanMessage, BaseMessage # Added BaseMessage
-# Import specific OpenAI exceptions for handling
+# Import specific Google API core exceptions for handling
 try:
-    from openai import (
-        APIError, APIConnectionError, APITimeoutError, AuthenticationError,
-        BadRequestError, PermissionDeniedError, RateLimitError
-    )
+    from google.api_core import exceptions as google_exceptions
     # Define which errors should trigger a retry
     RETRYABLE_API_ERRORS = (
-        RateLimitError, APITimeoutError, APIError, APIConnectionError
+        google_exceptions.ServiceUnavailable,  # Typically 503
+        google_exceptions.TooManyRequests,     # Typically 429
+        google_exceptions.RetryError,          # General retryable error
+        google_exceptions.DeadlineExceeded,    # Typically 504
+        # Add other Google-specific transient errors if necessary
     )
-    OPENAI_ERRORS_AVAILABLE = True
+    GOOGLE_ERRORS_AVAILABLE = True
 except ImportError:
-    OPENAI_ERRORS_AVAILABLE = False
-    class APIError(Exception): pass
-    class APIConnectionError(APIError): pass
-    class APITimeoutError(APIError): pass
-    class AuthenticationError(APIError): pass
-    class BadRequestError(APIError): pass
-    class PermissionDeniedError(APIError): pass
-    class RateLimitError(Exception): pass
+    GOOGLE_ERRORS_AVAILABLE = False
+    # Fallback to generic Exception if google.api_core.exceptions is not available
+    # This might happen if langchain-google-genai is installed but google-api-core is missing/different
     RETRYABLE_API_ERRORS = (Exception,)
-    logging.warning("openai library not found or exceptions changed. Specific API error handling may be limited.")
+    logging.warning("google-api-core library not found or exceptions changed. Specific API error handling for retries may be limited.")
 
 # Get a logger instance for this module
 logger = logging.getLogger(__name__)
@@ -124,16 +120,18 @@ def extract_text_from_image(image: Image.Image) -> Optional[str]:
             logger.error(f"Unexpected LLM response format or type after successful call. Response: {response}")
             return None
 
-    except AuthenticationError as e:
-        logger.critical(f"OpenAI API Authentication Error: Invalid API Key? {e}", exc_info=True)
-        raise RuntimeError("API Authentication Failed") from e
-    except PermissionDeniedError as e:
-         logger.critical(f"OpenAI API Permission Error: Key lacks permission? {e}", exc_info=True)
-         raise RuntimeError("API Permission Denied") from e
-    except BadRequestError as e:
-         logger.error(f"OpenAI API Bad Request Error: {e}", exc_info=True)
-         return None
-    except Exception as e: # Catch errors from encoding, client init, or final retry failure
+    except google_exceptions.InvalidArgument as e: # Specific to "API key not valid"
+        logger.critical(f"Google API Invalid Argument Error (e.g., API Key Invalid): {e}", exc_info=False) # No need for full exc_info for this
+        # This is not typically a retryable error by nature of being an invalid argument / auth
+        raise RuntimeError("Google API Key / Argument Invalid") from e
+    except google_exceptions.PermissionDenied as e:
+         logger.critical(f"Google API Permission Error: Key lacks permission for the model/service? {e}", exc_info=True)
+         raise RuntimeError("Google API Permission Denied") from e
+    except google_exceptions.GoogleAPIError as e: # Catch other Google API errors
+         logger.error(f"Google API Error during text extraction: {e}", exc_info=True)
+         # This might be caught by tenacity if it's in RETRYABLE_API_ERRORS, otherwise it's a final failure here.
+         return None # Return None if not retryable or retries exhausted
+    except Exception as e: # Catch errors from encoding, client init, or final retry failure not covered above
         logger.error(f"Failed to extract text after retries or due to other error: {e}", exc_info=True)
         return None
 

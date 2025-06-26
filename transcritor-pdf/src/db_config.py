@@ -1,106 +1,84 @@
-import asyncpg
-import os
 import logging
+
+# Import the new centralized settings and database utility functions
+from src.core.config import settings, setup_logging as core_setup_logging
+from src.core.database import (
+    initialize_database as core_initialize_database,
+    close_database_connection as core_close_db_connection,
+    get_db_session, # For use in application code
+    get_db_contextmanager # For use in scripts or background tasks
+)
 
 logger = logging.getLogger(__name__)
 
-# Attempt to use ASYNC_DATABASE_URL first, then DATABASE_URL
-# The default value is a placeholder and should ideally not be used if .env is set up correctly.
-ASYNC_DB_URL_FROM_ENV = os.getenv("ASYNC_DATABASE_URL")
-DB_URL_FROM_ENV = os.getenv("DATABASE_URL")
+# EMBEDDING_DIMENSIONS is now sourced from settings
+EMBEDDING_DIMENSIONS = settings.EMBEDDING_DIMENSIONS
+logger.info(f"EMBEDDING_DIMENSIONS loaded from settings: {EMBEDDING_DIMENSIONS}")
 
-if ASYNC_DB_URL_FROM_ENV:
-    DATABASE_URL = ASYNC_DB_URL_FROM_ENV
-    logger.info(f"Using ASYNC_DATABASE_URL for transcritor-pdf: {DATABASE_URL}")
-elif DB_URL_FROM_ENV:
-    # If using a sync URL for an async app, ensure it's adapted if necessary,
-    # though asyncpg typically expects the connection string without a specific +driver.
-    # For simplicity, we'll assume it's compatible or will be made so.
-    DATABASE_URL = DB_URL_FROM_ENV
-    logger.info(f"Using DATABASE_URL for transcritor-pdf: {DATABASE_URL}")
-    # Potentially adapt if it's a sync-only DSN like 'postgresql://...' for asyncpg
-    if not DATABASE_URL.startswith("postgresql+asyncpg://") and DATABASE_URL.startswith("postgresql://"):
-         # This basic replacement might not cover all cases but is a common adaptation.
-         # DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-         # logger.info(f"Adapted DATABASE_URL for asyncpg: {DATABASE_URL}")
-         # For now, let's assume the URL provided in .env is suitable or will be adjusted there.
-         pass # Keep it simple, rely on .env to provide a compatible URL
-else:
-    # Fallback if neither is set (should not happen in a configured environment)
-    DATABASE_URL = "postgresql+asyncpg://user:pass@host:port/db" # Placeholder
-    logger.warning("Neither ASYNC_DATABASE_URL nor DATABASE_URL found in environment. Using placeholder for transcritor-pdf.")
-
-# The rest of the file (db_pool, connect_to_db, close_db_connection)
-# will use this DATABASE_URL.
-
-# Placeholder for embedding dimensions - this might come from a model config later
-# For now, common dimensions are 384 (e.g., all-MiniLM-L6-v2), 768 (e.g., BERT base), 1536 (OpenAI Ada-002)
-EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
-
-# Global variable for the connection pool
-# Explicitly type hint that it can be None initially
-db_pool: asyncpg.Pool | None = None
+# The global asyncpg db_pool is no longer managed here.
+# SQLAlchemy manages its own connection pool.
 
 async def connect_to_db():
     """
-    Establishes a global database connection pool.
-    This function is called once at FastAPI application startup.
+    Initializes the application's database connection using the new core database module.
+    This function should be called at application startup.
     """
-    global db_pool
-    if db_pool:
-        logger.info("Database pool already exists.")
-        return
-
-    if not DATABASE_URL:
-        logger.error("DATABASE_URL is not set in environment variables.")
-        db_pool = None
-        return
-
-    logger.info(f"Attempting to connect to database using URL: {DATABASE_URL}")
-    try:
-        # FIX: asyncpg expects a DSN starting with 'postgresql://', not 'postgresql+asyncpg://'.
-        # We replace the SQLAlchemy-specific scheme with the asyncpg-compatible one.
-        compatible_dsn = DATABASE_URL.replace("postgresql+asyncpg", "postgresql")
-        
-        pool = await asyncpg.create_pool(
-            dsn=compatible_dsn,
-            min_size=1,
-            max_size=10,
-            # Add other pool options here if needed, e.g., command_timeout
-        )
-        db_pool = pool
-        logger.info("Successfully connected to the database and created pool.")
-    except (asyncpg.exceptions.PostgresError, OSError) as e:
-        logger.error(f"Failed to connect to the database and create pool: {e}", exc_info=True)
-        db_pool = None
+    logger.info("Attempting to initialize database via src.core.database.initialize_database...")
+    # Ensure logging is set up before initializing the database, as db init might log
+    # core_setup_logging() # Assuming logging is set up earlier in app lifecycle
+    await core_initialize_database() # Now an async function if create_engine is called within
+    # If core_initialize_database is not async, remove await.
+    # Based on its current implementation, initialize_database() is synchronous.
+    # Let's adjust core.database.initialize_database to be synchronous or ensure it's called appropriately.
+    # For now, assuming it's synchronous as per its current structure.
+    core_initialize_database() # Corrected: initialize_database is sync
 
 async def close_db_connection():
     """
-    Closes the database connection pool if it exists.
+    Closes the application's database connection using the new core database module.
+    This function should be called at application shutdown.
     """
-    global db_pool
-    if db_pool:
-        logger.info("Closing database connection pool...")
-        try:
-            await db_pool.close()
-            db_pool = None # Ensure it's reset
-            logger.info("Database connection pool closed successfully.")
-        except Exception as e:
-            logger.error(f"Error while closing database connection pool: {e}", exc_info=True)
-    else:
-        logger.info("No active database connection pool to close.")
+    logger.info("Attempting to close database connection via src.core.database.close_database_connection...")
+    await core_close_db_connection()
 
-# Example of how to use (typically called at app startup/shutdown):
-# async def main_app_lifecycle():
-#     await connect_to_db()
-#     # ... your application runs ...
-#     if db_pool: # Check if pool was successfully created
-#         # Example usage
-#         async with db_pool.acquire() as conn:
-#             val = await conn.fetchval("SELECT $1::TEXT", "Hello DB")
-#             print(f"Test query result: {val}")
-#     await close_db_connection()
+# Re-exporting the session utilities for convenience if other modules were importing them from here.
+# Consumers should ideally import directly from src.core.database in the future.
+get_db_session = get_db_session
+get_db_contextmanager = get_db_contextmanager
 
-# if __name__ == "__main__":
-#     logging.basicConfig(level=logging.INFO) # Ensure logger is configured for standalone run
-#     asyncio.run(main_app_lifecycle())
+# It's generally better to have a single point of logging setup.
+# This could be in main.py or the application factory.
+# For now, we can provide a utility function if db_config was responsible.
+def setup_application_logging():
+    """
+    Sets up logging for the application using the core config.
+    """
+    core_setup_logging()
+    logger.info("Application logging configured via src.core.config.setup_logging.")
+
+if __name__ == "__main__":
+    # Example of how this module might be tested or used (though direct execution is less common for config files)
+    import asyncio
+
+    async def main():
+        setup_application_logging() # Setup logging first
+        logger.info(f"ASYNC_DATABASE_URL from settings: {settings.ASYNC_DATABASE_URL}")
+        
+        await connect_to_db() # Initialize DB connection
+
+        if settings.ASYNC_DATABASE_URL: # Check if DB URL is actually set
+            logger.info("Attempting to get a DB session and perform a test query...")
+            try:
+                async with get_db_contextmanager() as db:
+                    from sqlalchemy import text
+                    result = await db.execute(text("SELECT 1 AS test_col"))
+                    logger.info(f"Test query result: {result.scalar_one()}")
+                logger.info("Successfully connected to DB and executed a query via SQLAlchemy.")
+            except Exception as e:
+                logger.error(f"Failed to connect or query database: {e}", exc_info=True)
+        else:
+            logger.warning("ASYNC_DATABASE_URL is not set. Skipping database test query.")
+
+        await close_db_connection() # Close DB connection
+
+    asyncio.run(main())

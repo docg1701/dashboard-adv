@@ -45,8 +45,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    ports:
-      - "8002:8002"
+    # Ports removed to isolate the service within the Docker network
     volumes:
       - ./transcritor-pdf:/app # Monta o código fonte para desenvolvimento com live-reload.
     command: uvicorn src.main:app --host 0.0.0.0 --port 8002 --reload
@@ -66,7 +65,7 @@ services:
       dockerfile: Dockerfile
     container_name: transcritor_pdf_worker
     env_file:
-      - ./backend/.env # Reutiliza o .env para variáveis de DB, etc.
+      - ./transcritor-pdf/.env # Uses its own .env file
     environment:
       - PYTHONPATH=/app # Garante que 'src' seja importável
       - CELERY_BROKER_URL=redis://redis:6379/0

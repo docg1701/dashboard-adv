@@ -1,0 +1,71 @@
+[tool.black]
+line-length = 119
+target-version = ['py311']
+# include = '\.pyi?$'
+# exclude = '''
+# /(
+#     \.eggs
+#   | \.git
+#   | \.hg
+#   | \.mypy_cache
+#   | \.tox
+#   | \.venv
+#   | _build
+#   | buck-out
+#   | build
+#   | dist
+# )/
+# '''
+
+[tool.ruff]
+# Enable Pyflakes, Pycodestyle, and isort rules by default.
+# Consider adding more rule sets like flake8-bugbear (B) or others.
+select = ["E", "F", "W", "I"] # E=pycodestyle errors, F=pyflakes, W=pycodestyle warnings, I=isort
+ignore = []
+
+# Allow autofix for all enabled rules (when --fix)
+fixable = ["A", "B", "C", "D", "E", "F", "G", "I", "N", "Q", "S", "T", "W", "ANN", "ARG", "BLE", "COM", "DJ", "DTZ", "EM", "ERA", "EXE", "FBT", "ICN", "INP", "ISC", "NPY", "PD", "PGH", "PIE", "PL", "PT", "PTH", "PYI", "RET", "RSE", "RUF", "SIM", "SLF", "TCH", "TID", "TRY", "UP", "YTT"]
+unfixable = []
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    "*/migrations/*", # Django migrations are often excluded
+    "*/static/*",
+    ".*/site-packages/*"
+]
+line-length = 119 # Match Black's line length
+
+# Assume Python 3.11 compatibility.
+target-version = "py311"
+
+[tool.ruff.mccabe]
+# Flag areas that are too complex.
+max-complexity = 10
+
+[tool.ruff.isort]
+# Sort imports automatically
+force-single-line = true
+lines-between-types = 1
+lines-after-imports = 2
+known-first-party = ["src"] # Important for your project's src imports
+# known-third-party = [] # Add any specific third-party libs if needed for ordering
+force-sort-within-sections = true

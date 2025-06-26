@@ -11,80 +11,67 @@ Includes logging for operations and errors.
 import sys
 import logging
 from typing import List, Dict, Any, Optional
-# Import the specific Langchain embedding class
+# Import the specific Langchain embedding class for Google Gemini
 try:
-    from langchain_openai import OpenAIEmbeddings
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
 except ImportError:
-    logging.critical("langchain-openai library not found. Please install it: pip install langchain-openai")
+    logging.critical("langchain-google-genai library not found. Please install it: pip install langchain-google-genai")
     sys.exit(1)
+
+from src.core.config import settings # Import Pydantic settings
 
 # Get a logger instance for this module
 logger = logging.getLogger(__name__)
 
-# --- Constants ---
-# Specifies the OpenAI embedding model to use.
-EMBEDDING_MODEL_NAME = "text-embedding-3-small"
-# Optional: Specify output dimensions if supported by the model and desired.
-# Set to None to use the model's default dimension (1536 for text-embedding-3-small).
-# Smaller dimensions (e.g., 256, 512, 1024) can save storage and potentially speed up
-# similarity search, possibly at the cost of some semantic nuance.
-EMBEDDING_DIMENSIONS = None # Use default
-
 # --- Embedding Model Initialization (Singleton Pattern) ---
 # Stores the initialized client instance.
-_embedding_client: Optional[OpenAIEmbeddings] = None
+_embedding_client: Optional[GoogleGenerativeAIEmbeddings] = None
 
-def get_embedding_client() -> OpenAIEmbeddings:
-    """Initializes and returns a singleton Langchain Embedding client instance.
+def get_embedding_client() -> GoogleGenerativeAIEmbeddings:
+    """Initializes and returns a singleton Langchain GoogleGenerativeAIEmbeddings client instance.
 
-    Configured for the OpenAI embedding model specified by `EMBEDDING_MODEL_NAME`
-    and `EMBEDDING_DIMENSIONS`. It relies on the `OPENAI_API_KEY` environment
-    variable being set (typically loaded from `.env` by `llm_client` or another
-    part of the application).
+    Configured using settings from `src.core.config` (GOOGLE_API_KEY, GEMINI_EMBEDDING_MODEL_NAME).
 
-    On the first call, it initializes the `OpenAIEmbeddings` client. Subsequent
-    calls return the cached instance.
+    On the first call, it initializes the `GoogleGenerativeAIEmbeddings` client.
+    Subsequent calls return the cached instance.
 
     Returns:
-        An initialized `langchain_openai.OpenAIEmbeddings` client instance.
+        An initialized `langchain_google_genai.GoogleGenerativeAIEmbeddings` client instance.
 
     Raises:
-        RuntimeError: If the `langchain-openai` library failed to import or if
-                      any other error occurs during client initialization (e.g.,
-                      authentication issues due to missing/invalid API key).
+        RuntimeError: If any error occurs during client initialization.
                       Logs critical errors before raising.
     """
     global _embedding_client
     if _embedding_client is None:
-        logger.info("Initializing Embedding client for the first time...")
-        if OpenAIEmbeddings is None:
-             # Should have been caught at import, but defensive check
-             logger.critical("OpenAIEmbeddings class not available (import failed).")
-             raise RuntimeError("langchain-openai library is required but failed to import.")
+        logger.info("Initializing Google Gemini Embedding client for the first time...")
+        if GoogleGenerativeAIEmbeddings is None:
+             logger.critical("GoogleGenerativeAIEmbeddings class not available (import failed).")
+             raise RuntimeError("langchain-google-genai library is required but failed to import.")
 
         try:
-            # Note: OpenAIEmbeddings reads OPENAI_API_KEY from env automatically.
-            logger.info("Configuring OpenAIEmbeddings:")
-            logger.info(f"  Model: {EMBEDDING_MODEL_NAME}")
-            logger.info(f"  Dimensions: {EMBEDDING_DIMENSIONS if EMBEDDING_DIMENSIONS else 'Default'}")
+            # GOOGLE_API_KEY is mandatory in settings and Pydantic would have raised error if not set.
+            api_key = settings.GOOGLE_API_KEY
+            model_name = settings.GEMINI_EMBEDDING_MODEL_NAME
+            # EMBEDDING_DIMENSIONS from settings is for DB schema, not directly passed to this client.
+            # Gemini embedding models have fixed output dimensions (e.g., 768 for text-embedding-004).
 
-            _embedding_client = OpenAIEmbeddings(
-                model=EMBEDDING_MODEL_NAME,
-                dimensions=EMBEDDING_DIMENSIONS if EMBEDDING_DIMENSIONS else None,
-                # Other potential parameters:
-                # chunk_size: Max number of texts to embed in one batch (defaults to 16 for ada-002)
-                # request_timeout: Timeout for API calls
-                # max_retries: Number of retries on failure
+            logger.info("Configuring GoogleGenerativeAIEmbeddings:")
+            logger.info(f"  Model: {model_name}")
+            # API key is not logged for security.
+
+            _embedding_client = GoogleGenerativeAIEmbeddings(
+                model=model_name,
+                google_api_key=api_key
+                # Other potential parameters for Google embeddings if needed:
+                # task_type: "RETRIEVAL_DOCUMENT", "SIMILARITY_SEARCH", etc.
+                # title: For document retrieval tasks
             )
-            logger.info("Embedding client initialized successfully.")
+            logger.info("Google Gemini Embedding client initialized successfully.")
 
         except Exception as e:
-            # Catch potential initialization errors (e.g., invalid key)
-            logger.critical(f"Failed to initialize OpenAI Embedding client: {e}", exc_info=True)
-            if "authentication" in str(e).lower():
-                 logger.error("Hint: Ensure OPENAI_API_KEY is set correctly in your .env file.")
-            # Re-raise as RuntimeError to signal critical failure
-            raise RuntimeError(f"Failed to initialize OpenAI Embedding client: {e}") from e
+            logger.critical(f"Failed to initialize Google Gemini Embedding client: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to initialize Google Gemini Embedding client: {e}") from e
 
     return _embedding_client
 
@@ -128,26 +115,39 @@ def generate_embeddings_for_chunks(rag_chunks: List[Dict[str, Any]]) -> List[Dic
         chunk_indices_to_embed: List[int] = [] # Keep track of original index
         for i, chunk in enumerate(rag_chunks):
             text = chunk.get("text_content")
-            if text and isinstance(text, str):
+            if text and isinstance(text, str) and text.strip(): # Also check if text is not just whitespace
                 texts_to_embed.append(text)
                 chunk_indices_to_embed.append(i)
             else:
                  # Ensure 'embedding' key exists even for skipped chunks
                  chunk['embedding'] = None
+                 if text is not None: # Log if text was present but invalid (e.g. empty string)
+                     logger.debug(f"Chunk {chunk.get('chunk_id', 'N/A')} has empty or invalid text_content, skipping embedding.")
+
 
         if not texts_to_embed:
              logger.warning("No valid text content found in any chunks to generate embeddings.")
              return rag_chunks # Return original list with embeddings set to None
 
-        logger.info(f"Sending {len(texts_to_embed)} non-empty text chunks to embedding API ({EMBEDDING_MODEL_NAME})...")
+        logger.info(f"Sending {len(texts_to_embed)} non-empty text chunks to Google Gemini embedding API ({settings.GEMINI_EMBEDDING_MODEL_NAME})...")
 
         # Generate embeddings - Langchain client handles batching
         # This call might raise exceptions on API errors (e.g., network, auth, rate limits)
         embeddings: List[List[float]] = embedding_client.embed_documents(texts_to_embed)
 
-        logger.info(f"Successfully received {len(embeddings)} embeddings from API.")
+        logger.info(f"Successfully received {len(embeddings)} embeddings from Gemini API.")
         if embeddings:
-             logger.debug(f"Example embedding dimension: {len(embeddings[0])}")
+             # Verify embedding dimension against settings for consistency, though it's model-defined.
+             actual_dim = len(embeddings[0])
+             logger.debug(f"Example embedding dimension from Gemini: {actual_dim}")
+             if actual_dim != settings.EMBEDDING_DIMENSIONS:
+                 logger.warning(
+                     f"Mismatch: Gemini model '{settings.GEMINI_EMBEDDING_MODEL_NAME}' produced embeddings of dimension {actual_dim}, "
+                     f"but settings.EMBEDDING_DIMENSIONS is {settings.EMBEDDING_DIMENSIONS}. "
+                     f"Ensure DB schema matches the model's output ({actual_dim})."
+                 )
+                 # Forcing settings.EMBEDDING_DIMENSIONS to actual_dim for this run might be an option,
+                 # but it's better to fix the config or schema.
 
         # --- Add embeddings back to the corresponding chunk dictionaries ---
         if len(embeddings) != len(chunk_indices_to_embed):
@@ -188,9 +188,11 @@ def generate_embeddings_for_chunks(rag_chunks: List[Dict[str, Any]]) -> List[Dic
 # Example usage block (for testing when script is run directly)
 if __name__ == "__main__":
     # Configure logging for test run
-    logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
-    logger.info("--- Running embedding_generator.py directly for testing ---")
-    logger.info(f"Requires .env file with OPENAI_API_KEY for model '{EMBEDDING_MODEL_NAME}'")
+    # Uses LOGGING_LEVEL from Pydantic settings now
+    logging.basicConfig(level=settings.LOGGING_LEVEL, format='%(asctime)s - %(levelname)s - %(name)s - %(message)s')
+    logger.info("--- Running embedding_generator.py directly for testing (Google Gemini) ---")
+    logger.info(f"Requires .env file with GOOGLE_API_KEY for model '{settings.GEMINI_EMBEDDING_MODEL_NAME}'")
+    logger.info(f"Expected embedding dimension: {settings.EMBEDDING_DIMENSIONS}")
 
     # Sample RAG chunks (output from formatter.py)
     sample_chunks = [

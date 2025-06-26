@@ -6,11 +6,11 @@ python-dotenv   # Para carregar variáveis de ambiente do .env
 tenacity            # Para lógica de retentativa (ex: em chamadas de API)
 
 # === Langchain Core & LLM/Embedding Integration ===
-langchain           # Framework principal
-langchain-openai    # Integração com OpenAI (ChatModels, Embeddings)
-langchain-community # Integrações da comunidade (ex: FakeListChatModel para testes)
-openai              # Biblioteca cliente da OpenAI (usada por langchain-openai)
-google-generativeai # Para acesso direto à API Gemini (opcional)
+langchain                   # Framework principal
+langchain-google-genai      # Integração com Google Gemini (ChatModels, Embeddings)
+langchain-community         # Integrações da comunidade (ex: FakeListChatModel para testes)
+# langchain-openai and openai removed as we are migrating to Gemini
+google-generativeai         # Para acesso direto à API Gemini (usado por langchain-google-genai)
 
 # === PDF & Image Handling ===
 pypdfium2           # Manipulação de PDF (dividir páginas)
@@ -38,3 +38,8 @@ celery[redis]~=5.3.6 # Distributed Task Queue with Redis support
 redis~=5.0.0         # Python client for Redis
 
 python-multipart
+
+# === Observability ===
+python-json-logger          # For structured JSON logging
+prometheus-fastapi-instrumentator # For Prometheus metrics with FastAPI
+prometheus_client           # Client library for Prometheus (dependency of the above, but good to list if using directly)

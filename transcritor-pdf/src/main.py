@@ -3,164 +3,132 @@
 Main entry point for the Transcritor PDF API.
 """
 import logging
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form # Added Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Request, Form
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_500_INTERNAL_SERVER_ERROR
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel # Added for Pydantic model
+from typing import List, Dict, Any, Optional # Keep List, Dict, Any, Optional if used by models or responses
+from pydantic import BaseModel
 
-# from src.tasks import process_pdf_task # Added for Celery task dispatch
-from src.celery_app import celery_app # Added for task status check
-from celery.result import AsyncResult # Added for task status check
-from src.query_processor import get_llm_answer_with_context # Added for query endpoint
+from src.celery_app import celery_app
+from celery.result import AsyncResult
+from src.query_processor import get_llm_answer_with_context
+
+# Import new core components
+from src.core.config import settings, setup_logging
+from src.core.database import (
+    initialize_database,
+    close_database_connection,
+    get_db_contextmanager, # For startup DDL
+)
+from src.core.security import verify_api_key # Import the API key verification dependency
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from fastapi import Depends # Import Depends
+
+# --- Logging Configuration ---
+# Call setup_logging() early, before FastAPI app initialization, to ensure all loggers use this config.
+# This uses LOGGING_LEVEL from Pydantic settings.
+setup_logging()
+logger = logging.getLogger(__name__) # Get logger instance after setup
 
 # --- FastAPI App Initialization ---
 app = FastAPI(
-    title="Transcritor PDF API",
+    title=settings.PROJECT_NAME + " (Transcritor PDF)",
     description="API para processar arquivos PDF, extrair texto e informações estruturadas, e preparar dados para RAG.",
     version="0.1.0"
 )
+
+# Prometheus Instrumentator
+# Must be initialized after FastAPI app creation and before adding routes (if specific route configs are needed for it)
+# or after routes if it instruments based on existing routes. Standard practice is after app creation.
+from prometheus_fastapi_instrumentator import Instrumentator
+instrumentator = Instrumentator(
+    should_group_status_codes=True, # Group 2xx, 3xx, 4xx, 5xx status codes
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics"], # Don't instrument the /metrics endpoint itself
+    inprogress_name="fastapi_http_requests_inprogress",
+    inprogress_labels=True,
+).instrument(app)
+
 
 # --- Pydantic Models ---
 class UserQueryRequest(BaseModel):
     user_query: str
 
 # --- Exception Handlers ---
-
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """
-    Handles validation errors (e.g., invalid request body).
-    Returns a 422 Unprocessable Entity response with error details.
-    """
-    logger.error(f"Validation error: {exc.errors()} for request: {request.url.path}", exc_info=False) # exc_info=False as exc.errors() is detailed enough
-    # It's good practice to log exc.body() if the body content might be relevant and not too large/sensitive
-    # logger.debug(f"Request body: {exc.body()}")
-
-    # Convert non-serializable errors (like ValueError in ctx) to strings
+    logger.error(f"Validation error: {exc.errors()} for request: {request.url.path}", exc_info=False)
     serializable_errors = []
     for error in exc.errors():
         new_error = error.copy()
         if 'ctx' in new_error and 'error' in new_error['ctx']:
-            if isinstance(new_error['ctx']['error'], ValueError): # Or more general Exception
+            if isinstance(new_error['ctx']['error'], (ValueError, TypeError)): # Broader catch
                 new_error['ctx']['error'] = str(new_error['ctx']['error'])
         serializable_errors.append(new_error)
-
     return JSONResponse(
         status_code=HTTP_422_UNPROCESSABLE_ENTITY,
-        # Providing a more structured error, including the type of error and where it occurred.
         content={"detail": "Validation Error", "errors": serializable_errors},
-        # Alternative simpler content: content={"detail": exc.errors(), "body": exc.body}
     )
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """
-    Handles FastAPI's HTTPException.
-    Ensures these are also logged and returned in a consistent JSON format.
-    FastAPI does this by default, but explicit handling allows for custom logging or format if needed.
-    """
     logger.error(f"HTTPException: {exc.status_code} {exc.detail} for request: {request.url.path}", exc_info=False)
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail}, # This is FastAPI's default structure for HTTPException
+        content={"detail": exc.detail},
     )
 
 @app.exception_handler(Exception)
 async def generic_exception_handler(request: Request, exc: Exception):
-    """
-    Handles any other unhandled exceptions.
-    Returns a 500 Internal Server Error response.
-    """
     logger.error(f"Unhandled exception: {str(exc)} for request: {request.url.path}", exc_info=True)
     return JSONResponse(
         status_code=HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "An unexpected internal server error occurred. Please contact support."},
-        # It's generally not a good idea to expose raw exception details to the client in production.
-        # For debugging, you might include: "error_type": type(exc).__name__, "message": str(exc)
     )
 
 # --- Database Setup & Teardown Events ---
-# Import db utilities
-from .db_config import connect_to_db, close_db_connection, db_pool, EMBEDDING_DIMENSIONS
-import asyncpg # Required for conn.execute within startup event
-
 @app.on_event("startup")
 async def startup_db_event():
     """
-    Connects to the database and creates the necessary table(s) if they don't exist.
+    Initializes the database connection and ensures necessary extensions (like pgvector) are available.
+    Schema (tables, indexes) should primarily be managed by Alembic migrations from the backend.
     """
-    logger.info("FastAPI startup event: Attempting to connect to database and setup schema...")
-    await connect_to_db() # Establishes the db_pool
-    if db_pool: # Ensure pool was created successfully
-        async with db_pool.acquire() as conn:
-            # It's good practice to use transactions for DDL sequences,
-            # though for simple IF NOT EXISTS it might be less critical.
-            async with conn.transaction():
-                try:
-                    # Create vector extension
-                    await conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                    logger.info("Ensured 'vector' extension exists.")
+    logger.info("FastAPI startup event: Initializing database connection...")
+    initialize_database() # This is a synchronous call from core.database
 
-                    # Define and create documents table
-                    # EMBEDDING_DIMENSIONS will be used from db_config
-                    # --- BEGINNING OF SECTION TO COMMENT OUT ---
-                    # The creation of the 'documents' table (for chunks, in the old design)
-                    # is now handled by Alembic migrations in the backend, which create
-                    # 'documents' (for metadata) and 'document_chunks' (for chunks and embeddings).
-                    # This old logic here can conflict or cause confusion.
-                    # create_table_query = f"""
-                    # CREATE TABLE IF NOT EXISTS documents (
-                    #     chunk_id TEXT PRIMARY KEY,
-                    #     filename TEXT,
-                    #     page_number INTEGER,
-                    #     text_content TEXT,
-                    #     metadata JSONB,
-                    #     embedding VECTOR({EMBEDDING_DIMENSIONS}),
-                    #     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    # );
-                    # """
-                    # await conn.execute(create_table_query)
-                    # logger.info(f"Ensured 'documents' table exists with schema (chunk_id PK, embedding dimension {EMBEDDING_DIMENSIONS}).")
-                    # --- END OF SECTION TO COMMENT OUT ---
-                    logger.info("Schema setup for 'documents' table in transcritor-pdf/main.py startup is now disabled. Schema is managed by backend Alembic migrations.")
+    logger.info(f"FastAPI startup event: Ensuring 'vector' extension exists using SQLAlchemy. EMBEDDING_DIMENSIONS from settings: {settings.EMBEDDING_DIMENSIONS}")
+    try:
+        async with get_db_contextmanager() as db_session: # Use new context manager
+            async with db_session.begin(): # Start a transaction for DDL
+                await db_session.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+                logger.info("SQLAlchemy: Ensured 'vector' extension exists.")
+            await db_session.commit() # Commit the transaction
+        logger.info("Database initialization and vector extension check complete.")
+    except SQLAlchemyError as sa_error:
+        logger.error(f"SQLAlchemy error during startup DDL (CREATE EXTENSION vector): {sa_error}", exc_info=True)
+        # Depending on requirements, might raise an error here to stop app startup if DB/vector is critical.
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during startup DDL (CREATE EXTENSION vector): {e}", exc_info=True)
+        # Potentially critical, consider app behavior
 
-                    # Example: Create an index (optional, can also be managed via migrations)
-                    # This is a basic index, refer to pgvector docs for IVFFlat or HNSW for larger datasets
-                    create_index_query = f"""
-                    CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-                    """
-                    # Using vector_l2_ops as an example, choose based on your distance metric
-                    # await conn.execute(create_index_query)
-                    # logger.info("Ensured basic index on embedding column exists (example using IVFFlat).")
-                    # Commenting out index creation for now, as it might be slow for startup
-                    # and depends on the specific vector ops preferred (l2, cosine, ip).
+    # Note: Table and other index creations previously here are assumed to be handled by Alembic migrations
+    # from the main backend to ensure a single source of truth for the schema.
+    logger.info("Schema setup for tables/indexes in transcritor-pdf/main.py startup is disabled/minimal. Schema is primarily managed by backend Alembic migrations.")
 
-                except asyncpg.exceptions.PostgresError as pe:
-                    logger.error(f"PostgreSQL error during startup schema setup: {pe}")
-                except Exception as e:
-                    logger.error(f"An unexpected error occurred during startup schema setup: {e}", exc_info=True)
-    else:
-        logger.error("Database pool not available after connect_to_db() call, skipping schema setup. Application might not function correctly.")
-        # Depending on requirements, might raise an error here to stop app startup if DB is critical.
+    # Expose the /metrics endpoint for Prometheus
+    instrumentator.expose(app, include_in_schema=False, should_gzip=True) # Added should_gzip
+
 
 @app.on_event("shutdown")
 async def shutdown_db_event():
     """
-    Closes the database connection pool.
+    Closes the database connections managed by SQLAlchemy.
     """
-    logger.info("FastAPI shutdown event: Closing database connection pool...")
-    await close_db_connection()
+    logger.info("FastAPI shutdown event: Closing database connections...")
+    await close_database_connection() # Calls the new core.database function
 
-# --- Logging Configuration ---
-# Basic logging setup, can be expanded later (e.g., from config file)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(name)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
 
 # --- Root Endpoint ---
 @app.get("/")
@@ -181,18 +149,21 @@ async def health_check():
     return {"status": "ok"}
 
 # --- PDF Processing Endpoint ---
-@app.post("/process-pdf/")
+@app.post("/process-pdf/", dependencies=[Depends(verify_api_key)])
 async def process_pdf_endpoint(
     file: UploadFile = File(...),
-    document_id: int = Form(...) # Added document_id from form data
+    document_id: int = Form(...), # Added document_id from form data
+    db: AsyncSession = Depends(get_db_session) # Inject DB session
 ):
     """
-    Endpoint to upload and process a PDF file.
+    Endpoint to upload and process a PDF file. Requires API Key.
+    Calculates file hash, checks for duplicates. If new, queues for processing.
     It reads the file, then calls the main processing pipeline, passing the document_id.
     """
+    import hashlib
     from src.tasks import process_pdf_task
     
-    logger.info(f"Received file: {file.filename} (type: {file.content_type})")
+    logger.info(f"Received file: {file.filename} (type: {file.content_type}) for document_id: {document_id}")
 
     # Basic file validation
     if not file.filename:
@@ -205,21 +176,57 @@ async def process_pdf_endpoint(
 
     try:
         file_bytes = await file.read()
-        logger.info(f"File '{file.filename}' read into memory, size: {len(file_bytes)} bytes.")
+        logger.info(f"File '{file.filename}' read into memory, size: {len(file_bytes)} bytes for document_id: {document_id}.")
 
         if not file_bytes:
-            logger.warning(f"Uploaded file '{file.filename}' is empty.")
+            logger.warning(f"Uploaded file '{file.filename}' is empty for document_id: {document_id}.")
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-        # Dispatch the processing to a Celery task, now including document_id
+        # 1. Calculate SHA-256 hash of the file content
+        file_hash = hashlib.sha256(file_bytes).hexdigest()
+        logger.info(f"Calculated SHA-256 hash for {file.filename} (doc_id: {document_id}): {file_hash}")
+
+        # 2. Check if this hash exists in the 'documents' table
+        # Assumes 'documents' table has 'file_hash' and 'status' columns.
+        # This query checks if the exact content (hash) already exists.
+        query_str = "SELECT id, status FROM documents WHERE file_hash = :file_hash LIMIT 1"
+        result = await db.execute(text(query_str), {"file_hash": file_hash})
+        existing_doc = result.mappings().first()
+
+        if existing_doc:
+            # Content already exists in the database
+            logger.warning(
+                f"Duplicate content detected for file {file.filename} (doc_id: {document_id}). "
+                f"Hash {file_hash} matches existing document_id: {existing_doc['id']} with status: {existing_doc['status']}."
+            )
+            # If the existing document_id is the one we were given, it implies the backend might be re-triggering.
+            # If it's a different document_id, it's a true content collision.
+            # The response should inform the backend about this.
+            return JSONResponse(
+                status_code=200, # Or 409 Conflict, depending on API contract with backend
+                content={
+                    "status": "duplicate",
+                    "message": "Document content already processed or processing.",
+                    "file_hash": file_hash,
+                    "existing_document_id": existing_doc['id'],
+                    "existing_document_status": existing_doc['status'],
+                    "current_document_id": document_id, # The ID passed in this request
+                    "task_id": None
+                }
+            )
+
+        # If hash does not exist, proceed to queue the task.
+        # The backend is responsible for ensuring the 'file_hash' is updated for the 'document_id' record.
+        logger.info(f"File content for {file.filename} (doc_id: {document_id}, hash: {file_hash}) is unique. Proceeding with processing.")
+
         task = process_pdf_task.delay(
             file_content_bytes=file_bytes,
             filename=file.filename,
-            document_id=document_id
+            document_id=document_id # document_id is for the record backend already created
         )
-        logger.info(f"File '{file.filename}' (Document ID: {document_id}) queued for processing with Task ID: {task.id}")
+        logger.info(f"File '{file.filename}' (Document ID: {document_id}, hash: {file_hash}) queued for processing with Task ID: {task.id}")
 
-        return {"task_id": task.id, "document_id": document_id, "message": "PDF processing has been queued."}
+        return {"task_id": task.id, "document_id": document_id, "file_hash": file_hash, "message": "PDF processing has been queued."}
 
     except HTTPException as http_exc:
         # Re-raise HTTPException so it's caught by its specific handler or FastAPI default
@@ -234,7 +241,7 @@ async def process_pdf_endpoint(
         logger.info(f"File '{file.filename}' closed.")
 
 # --- Task Status Endpoint ---
-@app.get("/process-pdf/status/{task_id}", summary="Get the status of a PDF processing task")
+@app.get("/process-pdf/status/{task_id}", summary="Get the status of a PDF processing task", dependencies=[Depends(verify_api_key)])
 async def get_task_status(task_id: str):
     logger.info(f"Accessing status for task_id: {task_id}")
     task_result = AsyncResult(task_id, app=celery_app)
@@ -273,10 +280,11 @@ async def get_task_status(task_id: str):
 # --- Document Query Endpoint ---
 @app.post("/query-document/{document_id}",
           summary="Query a specific document",
-          tags=["Document Query"])
+          tags=["Document Query"],
+          dependencies=[Depends(verify_api_key)])
 async def query_document_endpoint(document_id: str, request_data: UserQueryRequest):
     """
-    Allows querying a specific document by its ID (filename) using a user-provided query.
+    Allows querying a specific document by its ID (filename) using a user-provided query. Requires API Key.
     The query is processed by an LLM which uses context retrieved from the specified document.
 
     - **document_id**: The filename of the document to query. This is used to filter context chunks from the database.

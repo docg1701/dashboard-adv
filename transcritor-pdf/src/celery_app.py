@@ -1,17 +1,20 @@
-import os
 from celery import Celery
+from src.core.config import settings # Import Pydantic settings
 
-# Broker and backend URLs are now configurable via environment variables.
-# Defaults point to a Redis service named 'redis' as expected in Docker Compose.
+# Broker and backend URLs are now sourced from Pydantic settings,
+# which loads them from the .env file or environment variables.
+# Defaults are defined in the Settings class if not found in .env.
 
 celery_app = Celery(
     'transcritor_pdf', # Using the project name as the main app name
-    broker=os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0'),
-    backend=os.getenv('CELERY_BACKEND_URL', 'redis://redis:6379/1'), # Using a different DB for backend
+    broker=settings.CELERY_BROKER_URL,
+    backend=settings.CELERY_BACKEND_URL,
     include=['src.tasks'] # List of modules to import when worker starts
 )
 
 # Optional Celery configuration
+# Ensure settings values are not None if Celery expects strings.
+# Pydantic settings should provide default strings.
 celery_app.conf.update(
     task_serializer='json',
     result_serializer='json',
