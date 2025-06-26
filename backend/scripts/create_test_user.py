@@ -6,6 +6,13 @@ from sqlalchemy.exc import IntegrityError
 import os
 import sys
 
+# Adiciona o diretório 'backend' ao sys.path para permitir imports da 'app'
+# Isso torna o script executável de qualquer lugar, desde que o CWD seja a raiz do projeto.
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+
 # Use absolute imports again
 from app.core.database import async_session_local # Absolute import - Use ASYNC session maker
 from app.models.user import User                  # Absolute import

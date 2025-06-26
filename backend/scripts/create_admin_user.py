@@ -1,6 +1,14 @@
 import asyncio
 import logging
 import sys
+import os
+
+# Adiciona o diretório 'backend' ao sys.path para permitir imports da 'app'
+# Isso torna o script executável de qualquer lugar, desde que o CWD seja a raiz do projeto.
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 
 # --- CONFIGURAÇÃO DE LOG PRIMEIRO ---
 # Este bloco DEVE ser a primeira coisa a ser executada para garantir que um

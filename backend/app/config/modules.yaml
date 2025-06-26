@@ -44,14 +44,7 @@ modules:
     prefix: "/info/v1" # Keep consistent
     tags: ["Info"]
 
-  - name: "ai_test"
-    path: "modules.ai_test.v1" # Standard module path
-    version: "v1"
-    description: "Simple AI ping/pong test module."
-    enabled: false
-    router_variable_name: "router"
-    prefix: "/ai_test/v1" # Keep consistent
-    tags: ["AI Test"]
+  
 
   - name: "gerador_quesitos"
     path: "modules.gerador_quesitos.v1" # Standard module path
