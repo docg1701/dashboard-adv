@@ -21,14 +21,7 @@ As quatro primeiras fases constituem o escopo do MVP e devem ser executadas em s
 #### 1.1. Unificar Configuração e Padronizar Acesso a Dados
 - **Tarefa:** Agrupar as tarefas de unificar o arquivo `.env` com o do backend, adotar o **SQLAlchemy** para todo o acesso ao banco de dados e usar **Pydantic** para carregar e validar as configurações de ambiente.
 - **Justificativa:** Resolve vulnerabilidades críticas de gestão de conexão, elimina configurações "hardcoded" e estabelece um padrão arquitetural consistente com o restante do sistema.
-- **Detalhe de Implementação (Segredos):** O arquivo `.env` será usado **apenas para desenvolvimento local**. Para produção, os segredos (chaves de API, senhas) serão gerenciados através de um mecanismo seguro, como Docker Secrets ou variáveis de ambiente injetadas pelo orquestrador.
 - **Resultado Esperado:** Código mais limpo, seguro e de fácil manutenção, com um pool de conexões ao banco de dados gerenciado de forma eficiente e segura.
-
-#### 1.2. Garantir a Segurança da API
-- **Tarefa:** Isolar o serviço na rede interna do Docker (removendo a exposição de portas no `docker-compose.yml`) e implementar a autenticação via chave de API (`X-Internal-API-Key`) em um header HTTP.
-- **Justificativa:** É a principal linha de defesa do serviço. Impede o acesso não autorizado de qualquer outra fonte que não seja o backend principal.
-- **Detalhe de Implementação (Segredos):** A `X-Internal-API-Key` é um segredo e será carregada usando o mesmo mecanismo de gerenciamento de segredos definido na tarefa 1.1.
-- **Resultado Esperado:** O microsserviço `transcritor-pdf` só aceita requisições que contenham a chave de API secreta correta, bloqueando todo o tráfego externo e não autorizado.
 
 ### Fase 2: Funcionalidades de Negócio (Prioridade Alta)
 *O núcleo de valor que a refatoração se propõe a entregar ao utilizador final, agora incluindo a capacidade crítica de processamento de documentos escaneados.*
@@ -57,10 +50,16 @@ As quatro primeiras fases constituem o escopo do MVP e devem ser executadas em s
 - **Dependência:** Esta tarefa requer uma **alteração no esquema do banco de dados do `backend`**, adicionando uma coluna para o hash na tabela `documents`. A mudança deve ser coordenada e gerenciada via Alembic.
 - **Resultado Esperado:** Ao receber um PDF, o sistema calcula seu hash, verifica no banco de dados se já existe, e só inicia um novo processamento se o hash for inédito.
 
-### Fase 3: Qualidade e Robustez (Prioridade Média)
+### Fase 3: Segurança
+#### 3.1. Garantir a Segurança da API
+- **Tarefa:** Isolar o serviço na rede interna do Docker (removendo a exposição de portas no `docker-compose.yml`) e implementar a autenticação via chave de API (`X-Internal-API-Key`) em um header HTTP.
+- **Justificativa:** É a principal linha de defesa do serviço. Impede o acesso não autorizado de qualquer outra fonte que não seja o backend principal.
+- **Resultado Esperado:** O microsserviço `transcritor-pdf` só aceita requisições que contenham a chave de API secreta correta, bloqueando todo o tráfego externo e não autorizado.
+
+### Fase 4: Qualidade e Robustez (Prioridade Média)
 *Pequenos ajustes de alto impacto que elevam a qualidade da experiência e a confiabilidade do serviço.*
 
-#### 3.1. Aumentar a Robustez das Tarefas Assíncronas (Celery)
+#### 4.1. Aumentar a Robustez das Tarefas Assíncronas (Celery)
 - **Tarefa:** Implementar políticas de retentativa automática com backoff exponencial (`retry_backoff`, `max_retries`) nas tarefas Celery.
 - **Justificativa:** Garante que falhas temporárias (ex: instabilidade na rede ao chamar a API do Gemini) não resultem em falhas permanentes no processamento.
 - **Gestão de Falha Final:** Se uma tarefa falhar após todas as retentativas, o sistema deve:
@@ -68,15 +67,15 @@ As quatro primeiras fases constituem o escopo do MVP e devem ser executadas em s
     2.  Registrar o erro detalhado em um sistema de monitoramento (ex: Sentry) para análise.
 - **Resultado Esperado:** Tarefas assíncronas são capazes de se recuperar de erros transientes de forma automática, e falhas permanentes são tratadas de forma graciosa.
 
-#### 3.2. Otimizar o Processamento de Texto (Chunking)
+#### 4.2. Otimizar o Processamento de Texto (Chunking)
 - **Tarefa:** Substituir a função de chunking atual, baseada em tamanho fixo, por um divisor de texto mais sofisticado (ex: `RecursiveCharacterTextSplitter` da Langchain).
 - **Justificativa:** A qualidade da divisão do texto (chunking) tem um impacto direto e significativo na eficácia das buscas e nas respostas geradas pelo sistema de RAG.
 - **Resultado Esperado:** O texto dos documentos é dividido em pedaços com maior coerência semântica, melhorando a qualidade do contexto recuperado para as consultas do LLM.
 
-### Fase 4: Testes e Observabilidade (Core do MVP)
+### Fase 5: Testes e Observabilidade (Core do MVP)
 *Garantir que o MVP seja confiável, testável e transparente em seu funcionamento.*
 
-#### 4.1. Implementar Estratégia de Testes Automatizados
+#### 5.1. Implementar Estratégia de Testes Automatizados
 - **Tarefa:** Desenvolver um conjunto de testes automatizados para garantir a qualidade e prevenir regressões.
 - **Justificativa:** Testes são essenciais para validar a lógica de negócio, garantir a estabilidade das integrações e permitir refatorações futuras com segurança.
 - **Resultado Esperado:**
@@ -84,7 +83,7 @@ As quatro primeiras fases constituem o escopo do MVP e devem ser executadas em s
     - **Testes de Integração:** Para a interação com o banco de dados e com as APIs externas (usando mocks).
     - **Testes de Contrato:** Para validar que a API do `transcritor-pdf` adere ao contrato esperado pelo `backend`.
 
-#### 4.2. Implementar Observabilidade Essencial
+#### 5.2. Implementar Observabilidade Essencial
 - **Tarefa:** Integrar ferramentas de logging e monitoramento no serviço.
 - **Justificativa:** É impossível operar um serviço em produção de forma confiável sem visibilidade sobre seu comportamento, performance e erros.
 - **Resultado Esperado:**
@@ -93,11 +92,11 @@ As quatro primeiras fases constituem o escopo do MVP e devem ser executadas em s
 
 ---
 
-## SEGUNDA ENTREGA: PÓS-MVP (FASE 5)
+## SEGUNDA ENTREGA: PÓS-MVP (FASE 6)
 
 Após a conclusão e validação do MVP, as seguintes tarefas devem ser planejadas para evoluir o produto.
 
-### Fase 5: Melhoria Contínua (Prioridade Baixa)
+### Fase 6: Melhoria Contínua (Prioridade Baixa)
 - **Otimizar o Ambiente de Execução (Dockerfile):** Implementar multi-stage builds para reduzir o tamanho e a superfície de ataque da imagem Docker de produção.
 - **Adoção de Padrões de Código:** Implementar `Ruff` e `Black` para linting e formatação automática, e integrar a verificação em um pipeline de CI.
 - **Refinamento de Métricas e Alertas:** Expandir a observabilidade com dashboards detalhados e alertas automáticos para condições anômalas.
