@@ -82,76 +82,12 @@ async def generic_exception_handler(request: Request, exc: Exception):
     )
 
 # --- Database Setup & Teardown Events ---
-# Import db utilities
-from .db_config import connect_to_db, close_db_connection, db_pool, EMBEDDING_DIMENSIONS
-import asyncpg # Required for conn.execute within startup event
+# A gestão da conexão com o banco de dados agora é tratada pelo SQLAlchemy
+# através do gerenciador de contexto 'get_db_session', não sendo mais necessários
+# eventos de startup/shutdown para criar um pool de conexão global.
+# O esquema do banco de dados, incluindo a extensão 'vector', é gerenciado
+# exclusivamente pelas migrações do Alembic no serviço de backend.
 
-@app.on_event("startup")
-async def startup_db_event():
-    """
-    Connects to the database and creates the necessary table(s) if they don't exist.
-    """
-    logger.info("FastAPI startup event: Attempting to connect to database and setup schema...")
-    await connect_to_db() # Establishes the db_pool
-    if db_pool: # Ensure pool was created successfully
-        async with db_pool.acquire() as conn:
-            # It's good practice to use transactions for DDL sequences,
-            # though for simple IF NOT EXISTS it might be less critical.
-            async with conn.transaction():
-                try:
-                    # Create vector extension
-                    await conn.execute("CREATE EXTENSION IF NOT EXISTS vector;")
-                    logger.info("Ensured 'vector' extension exists.")
-
-                    # Define and create documents table
-                    # EMBEDDING_DIMENSIONS will be used from db_config
-                    # --- BEGINNING OF SECTION TO COMMENT OUT ---
-                    # The creation of the 'documents' table (for chunks, in the old design)
-                    # is now handled by Alembic migrations in the backend, which create
-                    # 'documents' (for metadata) and 'document_chunks' (for chunks and embeddings).
-                    # This old logic here can conflict or cause confusion.
-                    # create_table_query = f"""
-                    # CREATE TABLE IF NOT EXISTS documents (
-                    #     chunk_id TEXT PRIMARY KEY,
-                    #     filename TEXT,
-                    #     page_number INTEGER,
-                    #     text_content TEXT,
-                    #     metadata JSONB,
-                    #     embedding VECTOR({EMBEDDING_DIMENSIONS}),
-                    #     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-                    # );
-                    # """
-                    # await conn.execute(create_table_query)
-                    # logger.info(f"Ensured 'documents' table exists with schema (chunk_id PK, embedding dimension {EMBEDDING_DIMENSIONS}).")
-                    # --- END OF SECTION TO COMMENT OUT ---
-                    logger.info("Schema setup for 'documents' table in transcritor-pdf/main.py startup is now disabled. Schema is managed by backend Alembic migrations.")
-
-                    # Example: Create an index (optional, can also be managed via migrations)
-                    # This is a basic index, refer to pgvector docs for IVFFlat or HNSW for larger datasets
-                    create_index_query = f"""
-                    CREATE INDEX IF NOT EXISTS idx_documents_embedding ON documents USING ivfflat (embedding vector_l2_ops) WITH (lists = 100);
-                    """
-                    # Using vector_l2_ops as an example, choose based on your distance metric
-                    # await conn.execute(create_index_query)
-                    # logger.info("Ensured basic index on embedding column exists (example using IVFFlat).")
-                    # Commenting out index creation for now, as it might be slow for startup
-                    # and depends on the specific vector ops preferred (l2, cosine, ip).
-
-                except asyncpg.exceptions.PostgresError as pe:
-                    logger.error(f"PostgreSQL error during startup schema setup: {pe}")
-                except Exception as e:
-                    logger.error(f"An unexpected error occurred during startup schema setup: {e}", exc_info=True)
-    else:
-        logger.error("Database pool not available after connect_to_db() call, skipping schema setup. Application might not function correctly.")
-        # Depending on requirements, might raise an error here to stop app startup if DB is critical.
-
-@app.on_event("shutdown")
-async def shutdown_db_event():
-    """
-    Closes the database connection pool.
-    """
-    logger.info("FastAPI shutdown event: Closing database connection pool...")
-    await close_db_connection()
 
 # --- Logging Configuration ---
 # Basic logging setup, can be expanded later (e.g., from config file)
@@ -184,34 +120,33 @@ async def health_check():
 @app.post("/process-pdf/")
 async def process_pdf_endpoint(
     file: UploadFile = File(...),
-    document_id: int = Form(...) # Added document_id from form data
+    document_id: int = Form(...)
 ):
     """
     Endpoint to upload and process a PDF file.
-    It reads the file, then calls the main processing pipeline, passing the document_id.
+    It receives a file and a document_id from the backend, and dispatches
+    the processing to a Celery task. It trusts that the calling service
+    (backend) has already performed necessary validations (like duplicate checks).
     """
     from src.tasks import process_pdf_task
     
-    logger.info(f"Received file: {file.filename} (type: {file.content_type})")
+    logger.info(f"Received file: {file.filename} (type: {file.content_type}) for document_id: {document_id}")
 
     # Basic file validation
     if not file.filename:
         logger.warning("File upload attempt with no filename.")
         raise HTTPException(status_code=400, detail="No filename provided.")
-
     if file.content_type != "application/pdf":
-        logger.warning(f"Invalid file type: {file.content_type} for file {file.filename}. Only PDF is allowed.")
+        logger.warning(f"Invalid file type: {file.content_type} for file {file.filename}.")
         raise HTTPException(status_code=415, detail="Invalid file type. Only PDF files are allowed.")
 
     try:
         file_bytes = await file.read()
-        logger.info(f"File '{file.filename}' read into memory, size: {len(file_bytes)} bytes.")
-
         if not file_bytes:
             logger.warning(f"Uploaded file '{file.filename}' is empty.")
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
-        # Dispatch the processing to a Celery task, now including document_id
+        # Dispatch the processing to a Celery task
         task = process_pdf_task.delay(
             file_content_bytes=file_bytes,
             filename=file.filename,
@@ -222,16 +157,14 @@ async def process_pdf_endpoint(
         return {"task_id": task.id, "document_id": document_id, "message": "PDF processing has been queued."}
 
     except HTTPException as http_exc:
-        # Re-raise HTTPException so it's caught by its specific handler or FastAPI default
-        logger.debug(f"Re-raising HTTPException for '{file.filename}': {http_exc.detail}")
         raise http_exc
     except Exception as e:
-        # This catches unexpected errors during file read or within the pipeline if not handled by HTTPExceptions
         logger.error(f"Unexpected error processing file '{file.filename}': {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"An internal server error occurred while processing the PDF: {file.filename}.")
+        raise HTTPException(status_code=500, detail=f"An internal server error occurred while processing the PDF.")
     finally:
         await file.close()
         logger.info(f"File '{file.filename}' closed.")
+
 
 # --- Task Status Endpoint ---
 @app.get("/process-pdf/status/{task_id}", summary="Get the status of a PDF processing task")

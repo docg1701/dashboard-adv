@@ -21,8 +21,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      transcritor_pdf: # Adicionada dependência do transcritor_pdf
-        condition: service_healthy
+      #transcritor_pdf: # Adicionada dependência do transcritor_pdf
+        #condition: service_healthy
     networks:
       - app-network
 
@@ -40,6 +40,7 @@ services:
       - ./backend/.env # Reutiliza o .env para acesso unificado ao banco de dados.
     environment:
       - PYTHONPATH=/app
+    working_dir: /app
     depends_on:
       db:
         condition: service_healthy
@@ -68,10 +69,9 @@ services:
     env_file:
       - ./backend/.env # Reutiliza o .env para variáveis de DB, etc.
     environment:
-      - PYTHONPATH=/app # Garante que 'src' seja importável
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_BACKEND_URL=redis://redis:6379/1
-    command: celery -A src.celery_app worker -l info
+      - PYTHONPATH=/app
+    working_dir: /app
+    command: celery -A src.celery_app:celery_app worker -l info
     volumes:
       - ./transcritor-pdf:/app # Monta o código fonte para desenvolvimento
     depends_on:
@@ -111,7 +111,7 @@ services:
     ports:
       - "5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-appuser} -d $${POSTGRES_DB:-appdb}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
       interval: 10s
       timeout: 5s
       retries: 5

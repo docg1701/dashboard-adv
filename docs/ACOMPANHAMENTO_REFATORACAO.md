@@ -18,18 +18,18 @@ Este documento serve para rastrear o progresso da refatoração do microsserviç
 ### Fase 1: Fundação de Código e Configuração (Prioridade Máxima)
 *O alicerce do serviço. Esta fase estabelece a base para a segurança, estabilidade e manutenibilidade do sistema.*
 
--   [ ] **1.1. Migrar Acesso a Dados para SQLAlchemy (Tarefa Crítica)**
-    -   [ ] Refatorar todo o código de acesso ao banco de dados para usar o ORM assíncrono do SQLAlchemy.
-    -   [ ] Implementar um gerenciador de contexto (`asynccontextmanager`) para as sessões do banco de dados.
-    -   [ ] Substituir todas as chamadas diretas `asyncpg` pela nova camada ORM.
--   [ ] **1.2. Unificar Configuração de Ambiente com Pydantic**
-    -   [ ] Adicionar `pydantic-settings` ao `requirements.txt` do `transcritor-pdf`.
-    -   [ ] Criar um módulo de `settings` que carrega a configuração do arquivo `.env` do `backend`.
-    -   [ ] Remover qualquer configuração duplicada ou hardcoded.
--   [ ] **1.3. Implementar Detecção de Arquivos Duplicados**
-    -   [ ] **No `backend`:** Criar uma nova migração Alembic para adicionar a coluna `file_hash` (string, unique) à tabela `documents`.
-    -   [ ] **No `transcritor-pdf`:** Implementar a função para calcular o hash SHA-256 do arquivo PDF.
-    -   [ ] **No `transcritor-pdf`:** Antes de processar, usar a camada SQLAlchemy para consultar o `backend` pelo `file_hash`.
+-   [x] **1.1. Migrar Acesso a Dados para SQLAlchemy (Tarefa Crítica)**
+    -   [x] Refatorar todo o código de acesso ao banco de dados para usar o ORM assíncrono do SQLAlchemy.
+    -   [x] Implementar um gerenciador de contexto (`asynccontextmanager`) para as sessões do banco de dados.
+    -   [x] Substituir todas as chamadas diretas `asyncpg` pela nova camada ORM.
+-   [x] **1.2. Unificar Configuração de Ambiente com Pydantic**
+    -   [x] Adicionar `pydantic-settings` ao `requirements.txt` do `transcritor-pdf`.
+    -   [x] Criar um módulo de `settings` que carrega a configuração do arquivo `.env` do `backend`.
+    -   [x] Remover qualquer configuração duplicada ou hardcoded.
+-   [x] **1.3. Implementar Detecção de Arquivos Duplicados**
+    -   [x] **No `backend`:** Criar uma nova migração Alembic para adicionar a coluna `file_hash` (string, unique) à tabela `documents`.
+    -   [x] **No `transcritor-pdf`:** Implementar a função para calcular o hash SHA-256 do arquivo PDF.
+    -   [x] **No `transcritor-pdf`:** Antes de processar, usar a camada SQLAlchemy para consultar o `backend` pelo `file_hash`.
 
 ---
 

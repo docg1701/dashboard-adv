@@ -22,117 +22,76 @@ TRANSCRIBER_TASK_STATUS_URL_TEMPLATE = "http://transcritor_pdf_service:8002/proc
 async def handle_file_upload(file: UploadFile, user_id: int, db: AsyncSession = Depends(get_db)):
     """
     Handles the file upload:
-    1. Creates a Document record in the local database.
-    2. Sends the file and the new document_id to the transcriber PDF service.
-
-    Args:
-        file: The UploadFile object received from the FastAPI request.
-        user_id: The ID of the user uploading the file.
-
-    Returns:
-        A dictionary with a success message and data from the transcriber service.
-
-    Raises:
-        HTTPException: If there's an error during the process (e.g., connection issues,
-                       error response from transcriber service, or other unexpected errors).
+    1. Calculates the file hash to check for duplicates.
+    2. If the document is a duplicate, returns a message indicating so.
+    3. If it's a new file, creates a Document record in the database.
+    4. Sends the file and the new document_id to the transcriber PDF service.
     """
+    file_content = await file.read()
+    await file.seek(0)
+
+    file_hash = hashlib.sha256(file_content).hexdigest()
+
+    # Check if a document with this hash already exists
+    stmt = select(Document).where(Document.file_hash == file_hash)
+    result = await db.execute(stmt)
+    db_document = result.scalars().first()
+
+    if db_document:
+        return {
+            "message": "File already exists.",
+            "transcriber_data": {
+                "task_id": None,
+                "document_id": db_document.id
+            },
+            "original_filename": db_document.file_name,
+            "uploader_user_id": user_id
+        }
+
+    # Create a new document record for the new file
+    db_document = Document(
+        file_hash=file_hash,
+        file_name=file.filename,
+        # created_at is handled by a server_default
+    )
+    db.add(db_document)
+    await db.commit()
+    await db.refresh(db_document)
+    document_id = db_document.id
+
+    if document_id is None:
+        raise HTTPException(status_code=500, detail="Failed to retrieve document ID after creation.")
+
     async with httpx.AsyncClient() as client:
         try:
-            # Read file content into memory. For very large files, streaming might be preferred.
-            file_content = await file.read()
-            await file.seek(0) # Reset file pointer if read multiple times or for hashing
-
-            # Generate file hash
-            file_hash = hashlib.sha256(file_content).hexdigest()
-
-            # Check if document with this hash already exists
-            stmt = select(Document).where(Document.file_hash == file_hash)
-            result = await db.execute(stmt)
-            db_document = result.scalars().first()
-
-            if db_document:
-                # Document already exists, use its ID
-                document_id = db_document.id
-                # Optionally, you might want to update file_name or updated_at if it's a re-upload
-                # db_document.file_name = file.filename
-                # db_document.updated_at = func.now() # SQLAlchemy func.now()
-                # await db.commit()
-                # await db.refresh(db_document)
-                # For now, just use existing document_id and let transcriber re-process if needed
-            else:
-                # Create new document record
-                db_document = Document(
-                    file_hash=file_hash,
-                    file_name=file.filename,
-                    # created_at is server_default
-                )
-                db.add(db_document)
-                await db.commit()
-                await db.refresh(db_document)
-                document_id = db_document.id
-
-            if document_id is None: # Should not happen if refresh worked
-                raise HTTPException(status_code=500, detail="Failed to retrieve document ID after creation/lookup.")
-
-            # Prepare the file data for the multipart/form-data request.
             files_data = {'file': (file.filename, file_content, file.content_type)}
-
-            # Prepare other form data to send to transcriber service
-            form_data = {'document_id': str(document_id)} # Pass the document_id
+            form_data = {'document_id': str(document_id)}
 
             response = await client.post(
                 TRANSCRIBER_SERVICE_URL,
                 files=files_data,
-                data=form_data, # Send document_id as form data
+                data=form_data,
                 timeout=60.0
             )
-
-            # Raise an exception for 4xx (client errors) or 5xx (server errors) responses.
             response.raise_for_status()
-
-            # Assuming the transcriber service returns a JSON response on success.
             transcriber_response = response.json()
 
             return {
-                "message": "File successfully processed by transcriber.",
+                "message": "File successfully sent for processing.",
                 "transcriber_data": transcriber_response,
                 "original_filename": file.filename,
                 "uploader_user_id": user_id
             }
         except httpx.HTTPStatusError as e:
-            # Error response from the transcriber service (e.g., 400, 422, 500)
-            # It's often good practice to not expose the exact error message from downstream services
-            # directly to the client, as it might reveal internal implementation details.
-            # Log the detailed error (e.g., e.response.text) for debugging on the server.
-            # For this exercise, we'll forward a structured detail.
             error_detail = f"Error from transcriber service: Status {e.response.status_code}."
-            # Consider logging e.response.text here for internal diagnostics
-            # print(f"Transcriber service error: {e.response.text}") # Example logging
-            raise HTTPException(
-                status_code=e.response.status_code, # Or a generic 502/503 if you prefer to mask it
-                detail=error_detail
-            )
-        except httpx.RequestError as e:
-            # Network-related errors (e.g., connection refused, DNS resolution failure)
-            # This indicates the transcriber service might be down or unreachable.
-            # Log the detailed error for debugging.
-            # print(f"RequestError connecting to transcriber: {str(e)}") # Example logging
-            raise HTTPException(
-                status_code=503, # Service Unavailable
-                detail=f"Could not connect to transcriber service. Please try again later."
-            )
+            raise HTTPException(status_code=e.response.status_code, detail=error_detail)
+        except httpx.RequestError:
+            raise HTTPException(status_code=503, detail="Could not connect to transcriber service.")
         except Exception as e:
-            # Catch-all for any other unexpected errors during the process.
-            # This could be issues with file reading, an unexpected httpx error not caught above, etc.
-            # Log the detailed error for debugging.
-            # print(f"Unexpected error in handle_file_upload: {str(e)}") # Example logging
-            raise HTTPException(
-                status_code=500, # Internal Server Error
-                detail="An unexpected error occurred while processing the file."
-            )
+            raise HTTPException(status_code=500, detail="An unexpected error occurred while processing the file.")
         finally:
-            # It's crucial to close the uploaded file to free up resources.
             await file.close()
+
 
 async def handle_document_query(document_id: str, user_query: str, user_id: int):
     # Ensure httpx is imported: import httpx # Already imported

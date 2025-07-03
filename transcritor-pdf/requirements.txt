@@ -4,12 +4,14 @@
 # === Core ===
 python-dotenv   # Para carregar variáveis de ambiente do .env
 tenacity            # Para lógica de retentativa (ex: em chamadas de API)
+pydantic-settings   # Para carregar e validar configurações com Pydantic
 
 # === Langchain Core & LLM/Embedding Integration ===
 langchain           # Framework principal
-langchain-openai    # Integração com OpenAI (ChatModels, Embeddings)
+langchain-openai    # Integração com OpenAI (SERÁ REMOVIDO)
+langchain_google_genai # Integração com Google Gemini
 langchain-community # Integrações da comunidade (ex: FakeListChatModel para testes)
-openai              # Biblioteca cliente da OpenAI (usada por langchain-openai)
+openai              # Biblioteca cliente da OpenAI (SERÁ REMOVIDO)
 google-generativeai # Para acesso direto à API Gemini (opcional)
 
 # === PDF & Image Handling ===
@@ -19,8 +21,10 @@ scikit-image        # Processamento avançado de imagem (CLAHE, Sauvola, Median,
 docling             # For advanced PDF layout analysis and document understanding
 
 # === Vector Store / Database ===
-asyncpg             # Driver Async PostgreSQL (para pgvector)
-# langchain-postgres # Integração Langchain específica para PGVector (considerar depois)
+sqlalchemy          # ORM para interação com o banco de dados
+asyncpg             # Driver Async PostgreSQL (usado por SQLAlchemy)
+psycopg2-binary     # Driver síncrono do PostgreSQL (necessário para Alembic)
+greenlet            # Dependência para o suporte asyncio do SQLAlchemy
 
 # === API & Web Server ===
 fastapi             # Framework para construção de APIs
@@ -32,9 +36,14 @@ pytest-mock         # Fixture para mocking/patching em testes
 pytest-asyncio      # Plugin para suportar testes async com pytest
 httpx               # Cliente HTTP assíncrono, dependência do TestClient do FastAPI
 requests            # For simple HTTP requests (e.g., in smoke tests)
+structlog           # Para logging estruturado
 
 # === Task Queuing / Celery ===
 celery[redis]~=5.3.6 # Distributed Task Queue with Redis support
 redis~=5.0.0         # Python client for Redis
+
+# === Code Quality & Formatting ===
+#ruff                # Linter e formatador de código
+#black               # Formatador de código
 
 python-multipart

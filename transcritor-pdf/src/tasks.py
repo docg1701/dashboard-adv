@@ -1,3 +1,4 @@
+import asyncio  # Ensure asyncio is imported at the top
 from src.celery_app import celery_app
 from src.processing import process_pdf_pipeline # Import from the new processing module
 
@@ -5,8 +6,7 @@ from src.processing import process_pdf_pipeline # Import from the new processing
 # or other main.py specific initializations, the core logic of
 # process_pdf_pipeline might need to be extracted into a separate utility module
 # that both main.py and tasks.py can import.
-
-@celery_app.task(name='src.tasks.process_pdf_task')
+@celery_app.task
 def process_pdf_task(file_content_bytes: bytes, filename: str, document_id: int) -> dict: # Added document_id
     '''
     Celery task to process a PDF file.
@@ -32,8 +32,6 @@ def process_pdf_task(file_content_bytes: bytes, filename: str, document_id: int)
         # A standard Celery task is synchronous. To call async code from a sync task,
         # we need `asyncio.run()`.
 
-        import asyncio # Ensure asyncio is imported
-
         # Call the async pipeline using asyncio.run()
         result_summary = asyncio.run(process_pdf_pipeline(
             file_content=file_content_bytes,
@@ -56,6 +54,6 @@ def process_pdf_task(file_content_bytes: bytes, filename: str, document_id: int)
 # from src.celery_app import celery_app
 # So, we use that instance for all tasks.
 
-@celery_app.task(name="transcritor_pdf.tasks.health_check_task")
+@celery_app.task
 def health_check_task():
     return "Celery is healthy!"
