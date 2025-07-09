@@ -41,11 +41,8 @@ COPY . /app/
 EXPOSE 8000
 
 # Comando para rodar a aplicação
-# Usar variáveis de ambiente definidas anteriormente
-# Remover --reload para ambientes de staging/produção
-
-#CMD uvicorn ${MODULE_NAME}:${VARIABLE_NAME} --host ${APP_HOST} --port ${APP_PORT} --reload
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Usar python -m uvicorn para garantir que o PYTHONPATH seja corretamente manipulado, especialmente com --reload
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # --- NOTA SOBRE MULTI-STAGE BUILD ---
 # Para uma imagem ainda menor, considere um multi-stage build:

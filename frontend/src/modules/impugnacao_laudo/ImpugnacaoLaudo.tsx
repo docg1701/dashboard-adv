@@ -1,42 +1,39 @@
-// frontend/src/modules/gerador_quesitos/GeradorQuesitos.tsx
+// frontend/src/modules/impugnacao_laudo/ImpugnacaoLaudo.tsx
 import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import {
     Box, Button, Typography, CircularProgress, Alert, Paper, Stack,
-    Input, List, ListItem, ListItemText, IconButton, Select, MenuItem,
-    FormControl, InputLabel, SelectChangeEvent, Fade
+    Input, List, ListItem, ListItemText, IconButton, Fade
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { OPCOES_BENEFICIO, OPCOES_PROFISSAO, FRASES_DIVERTIDAS } from '../../config/opcoesFormulario';
-import { useGeradorQuesitosStore } from './geradorQuesitosStore';
-import QuesitosModal from '../../components/common/QuesitosModal'; // Import the new modal
+import { FRASES_DIVERTIDAS } from '../../config/opcoesFormulario';
+import { useImpugnacaoLaudoStore } from './impugnacaoLaudoStore';
+import QuesitosModal from '../../components/common/QuesitosModal';
 
-const GeradorQuesitos: React.FC = () => {
+const ImpugnacaoLaudo: React.FC = () => {
     // Local state
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-    const [beneficio, setBeneficio] = useState<string>('');
-    const [profissao, setProfissao] = useState<string>('');
     const [uiMessage, setUiMessage] = useState<string | null>(null);
     const [fraseDivertida, setFraseDivertida] = useState<string>('');
     const fileInputRef = useRef<HTMLInputElement>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
-    const [isModalOpen, setIsModalOpen] = useState(false); // State for modal visibility
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
-    // Global state from the simplified store
+    // Global state from the store
     const {
         isLoading,
         error,
-        quesitosResult,
-        gerarQuesitos,
+        impugnacaoResult,
+        gerarImpugnacao,
         currentFileBeingProcessed,
-    } = useGeradorQuesitosStore();
+    } = useImpugnacaoLaudoStore();
 
     // Effect to open modal when results are ready
     useEffect(() => {
-        if (quesitosResult && !isLoading) {
+        if (impugnacaoResult && !isLoading) {
             setIsModalOpen(true);
         }
-    }, [quesitosResult, isLoading]);
+    }, [impugnacaoResult, isLoading]);
 
     // Effect for funny phrases
     useEffect(() => {
@@ -84,23 +81,15 @@ const GeradorQuesitos: React.FC = () => {
     };
     const handleUploadClick = () => { fileInputRef.current?.click(); };
     const handleRemoveFile = (indexToRemove: number) => { setSelectedFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove)); };
-    const handleBeneficioChange = (event: SelectChangeEvent<string>) => { setBeneficio(event.target.value as string); };
-    const handleProfissaoChange = (event: SelectChangeEvent<string>) => { setProfissao(event.target.value as string); };
 
-    const handleGerarQuesitos = () => {
+    const handleGerarImpugnacao = () => {
         setUiMessage(null);
         if (selectedFiles.length === 0) {
             setUiMessage("Nenhum arquivo PDF selecionado.");
             return;
         }
-        if (selectedFiles.length > 1) {
-            // setUiMessage("Apenas o primeiro arquivo PDF selecionado será processado.");
-        }
-        if (!beneficio) { setUiMessage("Por favor, selecione o benefício."); return; }
-        if (!profissao) { setUiMessage("Por favor, selecione a profissão."); return; }
-
         const fileToProcess = selectedFiles[0];
-        gerarQuesitos(fileToProcess, beneficio, profissao);
+        gerarImpugnacao(fileToProcess);
     };
 
     const handleCloseModal = () => {
@@ -109,33 +98,16 @@ const GeradorQuesitos: React.FC = () => {
 
     return (
         <Stack spacing={3}>
-            <Typography variant="h6" component="h2"> Gerador de quesitos </Typography>
             {!isLoading ? ( /* Inputs */ <>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                   <FormControl fullWidth required error={!!uiMessage && !beneficio}>
-                       <InputLabel id="beneficio-select-label">Benefício Pretendido</InputLabel>
-                       <Select labelId="beneficio-select-label" value={beneficio} label="Benefício Pretendido" onChange={handleBeneficioChange} disabled={isLoading}>
-                           {OPCOES_BENEFICIO.map((option) => (<MenuItem key={option} value={option}>{option}</MenuItem>))}
-                       </Select>
-                   </FormControl>
-                    <FormControl fullWidth required error={!!uiMessage && !profissao}>
-                       <InputLabel id="profissao-select-label">Profissão</InputLabel>
-                       <Select labelId="profissao-select-label" value={profissao} label="Profissão" onChange={handleProfissaoChange} disabled={isLoading}>
-                           {OPCOES_PROFISSAO.map((option) => (<MenuItem key={option} value={option}>{option}</MenuItem>))}
-                       </Select>
-                   </FormControl>
-                </Stack>
                <Box>
                    <Button variant="outlined" onClick={handleUploadClick} startIcon={<UploadFileIcon />} disabled={isLoading}> Adicionar PDF(s) </Button>
-                   <Input type="file" inputRef={fileInputRef} onChange={handleFileChange} inputProps={{ accept: '.pdf', multiple: true, 'data-testid': 'file-input-gerador-quesitos' }} sx={{ display: 'none' }} />
+                   <Input type="file" inputRef={fileInputRef} onChange={handleFileChange} inputProps={{ accept: '.pdf', multiple: true, 'data-testid': 'file-input-impugnacao-laudo' }} sx={{ display: 'none' }} />
                </Box>
             </> ) : ( /* Loading State Display */
                 <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover' }}>
                     <Typography variant="h5" component="p" gutterBottom>
                         {currentFileBeingProcessed ? `Processando: ${currentFileBeingProcessed.name}` : "Aguardando Ação..."}
                     </Typography>
-                    <Typography variant="body1" color="text.secondary"> Benefício: {beneficio} </Typography>
-                    <Typography variant="body1" color="text.secondary"> Profissão: {profissao} </Typography>
                 </Paper>
             )}
             {selectedFiles.length > 0 && ( /* File List */ <Paper variant="outlined" sx={{ p: 1, mt: 1, maxHeight: '200px', overflowY: 'auto' }}>
@@ -152,8 +124,8 @@ const GeradorQuesitos: React.FC = () => {
             </Paper> )}
              {uiMessage && !isLoading && ( <Alert severity={uiMessage.includes('duplicado') || uiMessage.includes('ignorados') ? 'info' : 'warning'} sx={{ mt: 1 }}> {uiMessage} </Alert> )}
             <Box sx={{ textAlign: 'center', mt: 2 }}> {/* Submit Button */}
-                <Button variant="contained" color="primary" onClick={handleGerarQuesitos} disabled={isLoading || selectedFiles.length === 0 || !beneficio || !profissao} sx={{ minWidth: '180px', px: 3, py: 1.5, fontSize: '1rem' }}>
-                    {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Gerar Quesitos'}
+                <Button variant="contained" color="primary" onClick={handleGerarImpugnacao} disabled={isLoading || selectedFiles.length === 0} sx={{ minWidth: '180px', px: 3, py: 1.5, fontSize: '1rem' }}>
+                    {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Gerar Impugnação'}
                 </Button>
             </Box>
             {/* Display Funny Phrase during loading */}
@@ -172,11 +144,11 @@ const GeradorQuesitos: React.FC = () => {
             <QuesitosModal
                 open={isModalOpen}
                 onClose={handleCloseModal}
-                title="Quesitos Gerados"
-                content={quesitosResult || ''}
+                title="Impugnação Gerada"
+                content={impugnacaoResult || ''}
             />
         </Stack>
     );
 };
 
-export default GeradorQuesitos;
+export default ImpugnacaoLaudo;

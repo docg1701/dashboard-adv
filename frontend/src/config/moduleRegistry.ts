@@ -2,6 +2,7 @@ import React, { ComponentType, LazyExoticComponent } from 'react';
 import { SvgIconComponent } from '@mui/icons-material';
 import BuildIcon from '@mui/icons-material/Build'; // Example Icon
 import GavelIcon from '@mui/icons-material/Gavel'; // Icon for Gerador Quesitos
+import ArticleIcon from '@mui/icons-material/Article'; // Generic icon for document modules
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'; // Icon for System Info
 import DescriptionIcon from '@mui/icons-material/Description'; // Icon for PDF Transcriber
 
@@ -28,6 +29,7 @@ export interface ModuleRegistry {
 // Example Usage (will be populated by actual modules later)
 const moduleRegistry: ModuleRegistry = {
   // ... (any existing modules) ...
+  /*
   testModule: {
     name: 'Test Module',
     basePath: '/test-module',
@@ -42,10 +44,11 @@ const moduleRegistry: ModuleRegistry = {
       },
     ],
   },
+  */
   geradorQuesitos: {
     name: 'Gerador de Quesitos',
     basePath: '/gerador-quesitos',
-    navIcon: GavelIcon,
+    navIcon: ArticleIcon,
     navText: 'Gerador Quesitos',
     adminOnly: false, // Assuming it's not admin only, adjust if needed
     routes: [
@@ -56,6 +59,21 @@ const moduleRegistry: ModuleRegistry = {
       },
     ],
   },
+  impugnacaoLaudo: {
+    name: 'Impugnação de Laudo',
+    basePath: '/impugnacao-laudo',
+    navIcon: ArticleIcon, // Using the same icon for now
+    navText: 'Impugnação Laudo',
+    adminOnly: false,
+    routes: [
+      {
+        path: '/',
+        component: React.lazy(() => import('../pages/PaginaImpugnacaoLaudo')),
+        exact: true,
+      },
+    ],
+  },
+  /*
   systemInfo: {
     name: 'System Info',
     basePath: '/system-info',
@@ -70,6 +88,8 @@ const moduleRegistry: ModuleRegistry = {
       },
     ],
   },
+  */
+  /*
   transcritorPdfTester: { // Changed key
     name: 'Transcritor PDF Tester', // Changed display name
     basePath: '/transcritor-pdf-tester', // Optional: change base path for consistency
@@ -84,6 +104,7 @@ const moduleRegistry: ModuleRegistry = {
       },
     ],
   },
+  */
 };
 
 export const getModuleRegistry = (): ModuleRegistry => {

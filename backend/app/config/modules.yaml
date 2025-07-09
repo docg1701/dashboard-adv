@@ -39,18 +39,16 @@ modules:
     path: "modules.info.v1" # Standard module path
     version: "v1"
     description: "Provides system and environment information."
-    enabled: true
+    enabled: false
     router_variable_name: "router"
     prefix: "/info/v1" # Keep consistent
     tags: ["Info"]
 
-  
-
   - name: "gerador_quesitos"
     path: "modules.gerador_quesitos.v1" # Standard module path
     version: "v1"
-    description: "Generates legal questions (quesitos) from PDF documents."
-    enabled: false # Temporarily disabled due to import error
+    description: "Gerar Quesitos para perícias do INSS baseado em documentos PDF"
+    enabled: true
     router_variable_name: "router"
     prefix: "/gerador_quesitos/v1" # Keep consistent
     tags: ["Gerador Quesitos"]
@@ -61,7 +59,7 @@ modules:
     version: "v1"
     prefix: "/documents"
     tags: ["Documents v1"] # Updated tag to reflect versioning
-    enabled: true
+    enabled: false
 
   # Example of a disabled module:
   # - name: "experimental_feature"

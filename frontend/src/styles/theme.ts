@@ -7,7 +7,7 @@ const theme = createTheme({
   palette: {
     mode: 'light', // Default to light mode, can be 'dark'
     primary: {
-      main: '#556cd6', // Example primary color
+      main: '#4257b2', // Darker shade of blue
     },
     secondary: {
       main: '#19857b', // Example secondary color
@@ -21,31 +21,31 @@ const theme = createTheme({
   },
   typography: { // Optional: customize typography
     fontFamily: [
-      '-apple-system',
-      'BlinkMacSystemFont',
-      '"Segoe UI"',
-      'Roboto',
-      '"Helvetica Neue"',
-      'Arial',
+      'Public Sans',
       'sans-serif',
-      '"Apple Color Emoji"',
-      '"Segoe UI Emoji"',
-      '"Segoe UI Symbol"',
     ].join(','),
     // You can define variants like h1, h2, body1, etc.
     // h1: {
     //   fontSize: '2.5rem',
     // },
   },
-  // components: { // Optional: Override default component styles
-  //   MuiButton: {
-  //     styleOverrides: {
-  //       root: {
-  //         textTransform: 'none', // Example: disable uppercase buttons
-  //       },
-  //     },
-  //   },
-  // },
+  components: { // Optional: Override default component styles
+    MuiAppBar: {
+      styleOverrides: {
+        root: {
+          backgroundColor: '#000', // Set AppBar background to black
+          color: '#fff', // Set AppBar text color to white
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none', // Example: disable uppercase buttons
+        },
+      },
+    },
+  },
 });
 
 export default theme;

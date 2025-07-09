@@ -1,0 +1,127 @@
+# docker-compose.yml
+# Orquestra os serviços do dashboard-adv e microsserviços integrados.
+
+services:
+  # API principal do dashboard-adv.
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dashboard_adv_api # Alterado para dashboard-adv_api
+    env_file:
+      - ./backend/.env
+    environment:
+      - PYTHONPATH=/app
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      transcritor_pdf: # Adicionada dependência do transcritor_pdf
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # O serviço pdf_processor_service foi removido por ser obsoleto.
+  # A funcionalidade de processamento de PDF agora é tratada pelo transcritor_pdf.
+
+  # Microsserviço para processamento e vetorização de PDFs.
+  transcritor_pdf:
+    # O contexto aponta para o diretório transcritor-pdf dentro deste projeto.
+    build:
+      context: ./transcritor-pdf
+      dockerfile: Dockerfile
+    container_name: transcritor_pdf_service
+    env_file:
+      - ./backend/.env # Reutiliza o .env para acesso unificado ao banco de dados.
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./transcritor-pdf:/app # Monta o código fonte para desenvolvimento com live-reload.
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8002 --reload
+    healthcheck: # Adicionado healthcheck para o transcritor_pdf
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s # Dá tempo para o serviço iniciar
+    networks:
+      - app-network
+
+  # Worker Celery para o Transcritor PDF.
+  transcritor_pdf_worker:
+    build:
+      context: ./transcritor-pdf # Mesmo contexto e Dockerfile do serviço principal do transcritor
+      dockerfile: Dockerfile
+    container_name: transcritor_pdf_worker
+    env_file:
+      - ./backend/.env # Reutiliza o .env para variáveis de DB, etc.
+    environment:
+      - PYTHONPATH=/app # Garante que 'src' seja importável
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_BACKEND_URL=redis://redis:6379/1
+    command: celery -A src.celery_app worker -l info
+    volumes:
+      - ./transcritor-pdf:/app # Monta o código fonte para desenvolvimento
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  # Serviço de Fila de Mensagens (Cache e Broker para Celery).
+  redis:
+    image: redis:alpine
+    container_name: dashboard_adv_redis # Alterado para dashboard-adv_redis
+    # ports: # Não expor externamente por padrão, apenas à rede interna.
+    #   - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-network
+    # Healthcheck opcional, mas bom para depends_on: condition: service_healthy
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Serviço de banco de dados compartilhado.
+  db:
+    # Imagem PostgreSQL com a extensão pgvector pré-instalada.
+    image: pgvector/pgvector:pg16
+    container_name: dashboard_adv_db # Alterado para dashboard-adv_db
+    env_file:
+      - ./backend/.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-appuser} -d $${POSTGRES_DB:-appdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+volumes:
+  postgres_data:
+  redis_data: # Definição do volume para persistência do Redis.
+
+networks:
+  app-network:
+    driver: bridge
