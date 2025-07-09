@@ -188,8 +188,13 @@ const MainLayout: React.FC = () => {
             noWrap
             sx={{ flexGrow: 1 }}
           >
-            dashboard-adv
+            MTA IA
           </Typography>
+          {user && (
+            <Typography variant="subtitle1" component="span" sx={{ mr: 2 }}>
+              {user.email}
+            </Typography>
+          )}
           <Tooltip title="Logout">
             <IconButton color="inherit" onClick={handleLogout}
               sx={{

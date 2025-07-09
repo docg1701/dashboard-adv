@@ -49,7 +49,7 @@ const moduleRegistry: ModuleRegistry = {
     name: 'Gerador de Quesitos',
     basePath: '/gerador-quesitos',
     navIcon: ArticleIcon,
-    navText: 'Gerador Quesitos',
+    navText: 'Quesitos',
     adminOnly: false, // Assuming it's not admin only, adjust if needed
     routes: [
       {
@@ -60,7 +60,7 @@ const moduleRegistry: ModuleRegistry = {
     ],
   },
   impugnacaoLaudo: {
-    name: 'Impugnação de Laudo',
+    name: 'Impugnação de laudo pericial',
     basePath: '/impugnacao-laudo',
     navIcon: ArticleIcon, // Using the same icon for now
     navText: 'Impugnação Laudo',

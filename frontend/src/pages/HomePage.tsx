@@ -18,12 +18,7 @@ const HomePage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Welcome, {user?.username || user?.email || 'User'}!
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 4 }}>
-        Access available modules below.
-      </Typography>
+      
 
       {availableModules.length > 0 ? (
         <Grid container spacing={3}>
@@ -39,10 +34,10 @@ const HomePage: React.FC = () => {
                       )}
                       <CardContent sx={{ flexGrow: 1, p:0, '&:last-child': { pb: 0 } }}>
                         <Typography gutterBottom variant="h5" component="div">
-                          {module.navText || module.name}
+                          {module.navText}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Access the {module.name} module.
+                          {module.name}
                           {module.adminOnly && <Typography variant="caption" display="block" sx={{color: 'warning.main'}}> (Admin Only)</Typography>}
                         </Typography>
                       </CardContent>

@@ -1,7 +1,7 @@
 // frontend/src/modules/impugnacao_laudo/ImpugnacaoLaudo.tsx
 import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import {
-    Box, Button, Typography, CircularProgress, Alert, Paper, Stack,
+    Box, Button, Typography, CircularProgress, Alert, Paper, Stack, Container,
     Input, List, ListItem, ListItemText, IconButton, Fade
 } from '@mui/material';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -26,6 +26,7 @@ const ImpugnacaoLaudo: React.FC = () => {
         impugnacaoResult,
         gerarImpugnacao,
         currentFileBeingProcessed,
+        clearState, // Import clearState from the store
     } = useImpugnacaoLaudoStore();
 
     // Effect to open modal when results are ready
@@ -34,6 +35,13 @@ const ImpugnacaoLaudo: React.FC = () => {
             setIsModalOpen(true);
         }
     }, [impugnacaoResult, isLoading]);
+
+    // Effect to clear state on component unmount
+    useEffect(() => {
+        return () => {
+            clearState();
+        };
+    }, [clearState]);
 
     // Effect for funny phrases
     useEffect(() => {
@@ -94,60 +102,99 @@ const ImpugnacaoLaudo: React.FC = () => {
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
+        clearState(); // Clear the result when modal is closed
     };
 
     return (
-        <Stack spacing={3}>
-            {!isLoading ? ( /* Inputs */ <>
-               <Box>
-                   <Button variant="outlined" onClick={handleUploadClick} startIcon={<UploadFileIcon />} disabled={isLoading}> Adicionar PDF(s) </Button>
-                   <Input type="file" inputRef={fileInputRef} onChange={handleFileChange} inputProps={{ accept: '.pdf', multiple: true, 'data-testid': 'file-input-impugnacao-laudo' }} sx={{ display: 'none' }} />
-               </Box>
-            </> ) : ( /* Loading State Display */
-                <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover' }}>
-                    <Typography variant="h5" component="p" gutterBottom>
-                        {currentFileBeingProcessed ? `Processando: ${currentFileBeingProcessed.name}` : "Aguardando Ação..."}
+        <Container maxWidth="md" sx={{ mt: 4, mb: 4, p: 4, borderRadius: '12px', overflow: 'hidden' }}>
+            <Stack spacing={3}>
+                    <Typography variant="h5" component="h2" gutterBottom align="center" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Envie o laudo pericial e demais documentos pertinentes
                     </Typography>
-                </Paper>
-            )}
-            {selectedFiles.length > 0 && ( /* File List */ <Paper variant="outlined" sx={{ p: 1, mt: 1, maxHeight: '200px', overflowY: 'auto' }}>
-                 <Typography variant="subtitle2" gutterBottom sx={{ pl: 1 }}>
-                     {selectedFiles.length > 1 ? `Arquivo para processar: ${selectedFiles[0].name} (de ${selectedFiles.length} selecionados)` : `Arquivo Selecionado: ${selectedFiles[0].name}`}
-                 </Typography>
-                <List dense>
-                    {selectedFiles.map((file, index) => (
-                        <ListItem key={`${file.name}-${index}-${file.lastModified}`} secondaryAction={ <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveFile(index)} disabled={isLoading}> <DeleteIcon fontSize="small"/> </IconButton> } sx={{py: 0}}>
-                            <ListItemText primary={file.name} secondary={`${(file.size / 1024).toFixed(1)} KB`} primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }} />
-                        </ListItem>
-                    ))}
-                </List>
-            </Paper> )}
-             {uiMessage && !isLoading && ( <Alert severity={uiMessage.includes('duplicado') || uiMessage.includes('ignorados') ? 'info' : 'warning'} sx={{ mt: 1 }}> {uiMessage} </Alert> )}
-            <Box sx={{ textAlign: 'center', mt: 2 }}> {/* Submit Button */}
-                <Button variant="contained" color="primary" onClick={handleGerarImpugnacao} disabled={isLoading || selectedFiles.length === 0} sx={{ minWidth: '180px', px: 3, py: 1.5, fontSize: '1rem' }}>
-                    {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Gerar Impugnação'}
-                </Button>
-            </Box>
-            {/* Display Funny Phrase during loading */}
-            {isLoading && (
-                 <Fade in={!!fraseDivertida} timeout={300}>
-                     <Box>
-                         <Typography variant="body1" align="center" sx={{ mt: 1, fontStyle: 'italic', display: 'block', minHeight: '1.5em' }}>
-                             {fraseDivertida || '\u00A0'}
-                         </Typography>
-                     </Box>
-                </Fade>
-            )}
-            {error && ( /* API Error */ <Alert severity="error" sx={{ mt: 2 }}> {error} </Alert> )}
-            
-            {/* Render the modal */}
-            <QuesitosModal
-                open={isModalOpen}
-                onClose={handleCloseModal}
-                title="Impugnação Gerada"
-                content={impugnacaoResult || ''}
-            />
-        </Stack>
+
+                    {!isLoading ? ( /* Inputs */
+                        <Box sx={{ textAlign: 'center', p: 2, border: '2px dashed', borderColor: 'grey.400', borderRadius: '8px', bgcolor: 'grey.50' }}>
+                            <Button variant="contained" onClick={handleUploadClick} startIcon={<UploadFileIcon />} disabled={isLoading} size="large">
+                                Adicionar PDF(s)
+                            </Button>
+                            <Input type="file" inputRef={fileInputRef} onChange={handleFileChange} inputProps={{ accept: '.pdf', multiple: true, 'data-testid': 'file-input-impugnacao-laudo' }} sx={{ display: 'none' }} />
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                Arraste e solte seus arquivos PDF aqui, ou clique para selecionar.
+                            </Typography>
+                        </Box>
+                    ) : ( /* Loading State Display */
+                        <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover' }}>
+                            <Typography variant="h5" component="p" gutterBottom>
+                                {currentFileBeingProcessed ? `Processando: ${currentFileBeingProcessed.name}` : "Aguardando Ação..."}
+                            </Typography>
+                            
+                        </Paper>
+                    )}
+
+                    {selectedFiles.length > 0 && ( /* File List */
+                        <Paper variant="outlined" sx={{ p: 2, mt: 2, maxHeight: '250px', overflowY: 'auto', borderRadius: '8px', borderColor: 'grey.300' }}>
+                            <Typography variant="subtitle1" gutterBottom sx={{ mb: 1, fontWeight: 500 }}>
+                                Arquivos Selecionados:
+                            </Typography>
+                            <List dense>
+                                {selectedFiles.map((file, index) => (
+                                    <ListItem
+                                        key={`${file.name}-${index}-${file.lastModified}`}
+                                        secondaryAction={
+                                            <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveFile(index)} disabled={isLoading} size="small">
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        }
+                                        sx={{ py: 0.5 }}
+                                    >
+                                        <ListItemText
+                                            primary={file.name}
+                                            secondary={`${(file.size / 1024).toFixed(1)} KB`}
+                                            primaryTypographyProps={{ sx: { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }}
+                                        />
+                                    </ListItem>
+                                ))}
+                            </List>
+                        </Paper>
+                    )}
+
+                    {uiMessage && !isLoading && (
+                        <Alert severity={uiMessage.includes('duplicado') || uiMessage.includes('ignorados') ? 'info' : 'warning'} sx={{ mt: 2, borderRadius: '8px' }}>
+                            {uiMessage}
+                        </Alert>
+                    )}
+
+                    <Box sx={{ textAlign: 'center', mt: 2 }}> {/* Submit Button */}
+                        <Button variant="contained" color="primary" onClick={handleGerarImpugnacao} disabled={isLoading || selectedFiles.length === 0} sx={{ minWidth: '180px', px: 3, py: 1.5, fontSize: '1rem' }}>
+                            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Gerar Impugnação'}
+                        </Button>
+                    </Box>
+                    {/* Display Funny Phrase during loading */}
+                    {isLoading && (
+                         <Fade in={!!fraseDivertida} timeout={300}>
+                             <Box>
+                                 <Typography variant="body1" align="center" sx={{ mt: 1, fontStyle: 'italic', display: 'block', minHeight: '1.5em' }}>
+                                     {fraseDivertida || '\u00A0'}
+                                 </Typography>
+                             </Box>
+                        </Fade>
+                    )}
+
+                    {error && ( /* API Error */
+                        <Alert severity="error" sx={{ mt: 2, borderRadius: '8px' }}>
+                            {error}
+                        </Alert>
+                    )}
+
+                    {/* Render the modal */}
+                    <QuesitosModal
+                        open={isModalOpen}
+                        onClose={handleCloseModal}
+                        title="Impugnação Gerada"
+                        content={impugnacaoResult || ''}
+                    />
+                </Stack>
+        </Container>
     );
 };
 

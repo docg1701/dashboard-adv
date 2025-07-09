@@ -1,7 +1,7 @@
 // frontend/src/modules/gerador_quesitos/GeradorQuesitos.tsx
 import React, { useState, useRef, ChangeEvent, useEffect } from 'react';
 import {
-    Box, Button, Typography, CircularProgress, Alert, Paper, Stack,
+    Box, Button, Typography, CircularProgress, Alert, Paper, Stack, Container,
     Input, List, ListItem, ListItemText, IconButton, Select, MenuItem,
     FormControl, InputLabel, SelectChangeEvent, Fade
 } from '@mui/material';
@@ -29,6 +29,7 @@ const GeradorQuesitos: React.FC = () => {
         quesitosResult,
         gerarQuesitos,
         currentFileBeingProcessed,
+        clearState, // Import clearState from the store
     } = useGeradorQuesitosStore();
 
     // Effect to open modal when results are ready
@@ -37,6 +38,13 @@ const GeradorQuesitos: React.FC = () => {
             setIsModalOpen(true);
         }
     }, [quesitosResult, isLoading]);
+
+    // Effect to clear state on component unmount
+    useEffect(() => {
+        return () => {
+            clearState();
+        };
+    }, [clearState]);
 
     // Effect for funny phrases
     useEffect(() => {
@@ -105,11 +113,15 @@ const GeradorQuesitos: React.FC = () => {
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
+        clearState(); // Clear the result when modal is closed
     };
 
     return (
-        <Stack spacing={3}>
-            <Typography variant="h6" component="h2"> Gerador de quesitos </Typography>
+        <Container maxWidth="md" sx={{ mt: 4, mb: 4, p: 4, borderRadius: '12px', overflow: 'hidden' }}>
+            <Stack spacing={3}>
+                    <Typography variant="h5" component="h2" gutterBottom align="left" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        Gerador de Quesitos para laudo pericial
+                    </Typography>
             {!isLoading ? ( /* Inputs */ <>
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                    <FormControl fullWidth required error={!!uiMessage && !beneficio}>
@@ -125,23 +137,29 @@ const GeradorQuesitos: React.FC = () => {
                        </Select>
                    </FormControl>
                 </Stack>
-               <Box>
-                   <Button variant="outlined" onClick={handleUploadClick} startIcon={<UploadFileIcon />} disabled={isLoading}> Adicionar PDF(s) </Button>
-                   <Input type="file" inputRef={fileInputRef} onChange={handleFileChange} inputProps={{ accept: '.pdf', multiple: true, 'data-testid': 'file-input-gerador-quesitos' }} sx={{ display: 'none' }} />
-               </Box>
+               <Box sx={{ textAlign: 'center', p: 2, border: '2px dashed', borderColor: 'grey.400', borderRadius: '8px', bgcolor: 'grey.50' }}>
+                            <Button variant="contained" onClick={handleUploadClick} startIcon={<UploadFileIcon />} disabled={isLoading} size="large">
+                                Adicionar PDF(s)
+                            </Button>
+                            <Input type="file" inputRef={fileInputRef} onChange={handleFileChange} inputProps={{ accept: '.pdf', multiple: true, 'data-testid': 'file-input-gerador-quesitos' }} sx={{ display: 'none' }} />
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                                Arraste e solte seus arquivos PDF aqui, ou clique para selecionar.
+                            </Typography>
+                        </Box>
             </> ) : ( /* Loading State Display */
-                <Paper elevation={0} sx={{ p: 2, textAlign: 'center', bgcolor: 'action.hover' }}>
-                    <Typography variant="h5" component="p" gutterBottom>
+                <Paper elevation={0} sx={{ p: 3, textAlign: 'center', bgcolor: 'action.hover', borderRadius: '8px' }}>
+                    <Typography variant="h6" component="p" gutterBottom>
                         {currentFileBeingProcessed ? `Processando: ${currentFileBeingProcessed.name}` : "Aguardando Ação..."}
                     </Typography>
                     <Typography variant="body1" color="text.secondary"> Benefício: {beneficio} </Typography>
                     <Typography variant="body1" color="text.secondary"> Profissão: {profissao} </Typography>
                 </Paper>
             )}
-            {selectedFiles.length > 0 && ( /* File List */ <Paper variant="outlined" sx={{ p: 1, mt: 1, maxHeight: '200px', overflowY: 'auto' }}>
-                 <Typography variant="subtitle2" gutterBottom sx={{ pl: 1 }}>
-                     {selectedFiles.length > 1 ? `Arquivo para processar: ${selectedFiles[0].name} (de ${selectedFiles.length} selecionados)` : `Arquivo Selecionado: ${selectedFiles[0].name}`}
-                 </Typography>
+            {selectedFiles.length > 0 && ( /* File List */
+                <Paper variant="outlined" sx={{ p: 2, mt: 2, maxHeight: '250px', overflowY: 'auto', borderRadius: '8px', borderColor: 'grey.300' }}>
+                    <Typography variant="subtitle1" gutterBottom sx={{ mb: 1, fontWeight: 500 }}>
+                        Arquivos Selecionados:
+                    </Typography>
                 <List dense>
                     {selectedFiles.map((file, index) => (
                         <ListItem key={`${file.name}-${index}-${file.lastModified}`} secondaryAction={ <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveFile(index)} disabled={isLoading}> <DeleteIcon fontSize="small"/> </IconButton> } sx={{py: 0}}>
@@ -150,12 +168,16 @@ const GeradorQuesitos: React.FC = () => {
                     ))}
                 </List>
             </Paper> )}
-             {uiMessage && !isLoading && ( <Alert severity={uiMessage.includes('duplicado') || uiMessage.includes('ignorados') ? 'info' : 'warning'} sx={{ mt: 1 }}> {uiMessage} </Alert> )}
-            <Box sx={{ textAlign: 'center', mt: 2 }}> {/* Submit Button */}
-                <Button variant="contained" color="primary" onClick={handleGerarQuesitos} disabled={isLoading || selectedFiles.length === 0 || !beneficio || !profissao} sx={{ minWidth: '180px', px: 3, py: 1.5, fontSize: '1rem' }}>
-                    {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Gerar Quesitos'}
-                </Button>
-            </Box>
+             {uiMessage && !isLoading && (
+                        <Alert severity={uiMessage.includes('duplicado') || uiMessage.includes('ignorados') ? 'info' : 'warning'} sx={{ mt: 2, borderRadius: '8px' }}>
+                            {uiMessage}
+                        </Alert>
+                    )}
+            <Box sx={{ textAlign: 'center', mt: 3 }}> {/* Submit Button */}
+                        <Button variant="contained" color="primary" onClick={handleGerarQuesitos} disabled={isLoading || selectedFiles.length === 0 || !beneficio || !profissao} sx={{ minWidth: '180px', px: 3, py: 1.5, fontSize: '1rem' }}>
+                            {isLoading ? <CircularProgress size={24} color="inherit" /> : 'Gerar Quesitos'}
+                        </Button>
+                    </Box>
             {/* Display Funny Phrase during loading */}
             {isLoading && (
                  <Fade in={!!fraseDivertida} timeout={300}>
@@ -176,6 +198,7 @@ const GeradorQuesitos: React.FC = () => {
                 content={quesitosResult || ''}
             />
         </Stack>
+        </Container>
     );
 };
 
