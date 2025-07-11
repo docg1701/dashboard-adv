@@ -2,13 +2,35 @@
 
 Este documento descreve os passos exatos para clonar, configurar e executar o projeto `dashboard-adv` em um novo ambiente de desenvolvimento.
 
-## 1. Pré-requisitos
+## 1. Instalação dos Pré-requisitos
 
-Certifique-se de que você tem os seguintes softwares instalados e configurados em seu sistema:
+Os comandos abaixo são para sistemas baseados em Debian/Ubuntu. Para outros sistemas operacionais (como macOS ou Windows), consulte a documentação oficial de cada ferramenta.
 
-- **Git:** Para controle de versão.
-- **Docker e Docker Compose:** Para execução dos serviços de backend e banco de dados.
-- **Node.js (v18 ou superior):** Inclui o `npm` (v8 ou superior) para gerenciar o ambiente de frontend.
+### Git
+```bash
+sudo apt-get update
+sudo apt-get install git -y
+```
+
+### Docker e Docker Compose
+Siga o guia oficial do Docker para instalar o Docker Engine e o plugin do Docker Compose:
+[https://docs.docker.com/engine/install/ubuntu/](https://docs.docker.com/engine/install/ubuntu/)
+
+### Node.js e npm
+Recomendamos usar o `nvm` (Node Version Manager) para instalar o Node.js e o `npm`.
+
+```bash
+# Instalar nvm
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# Recarregar o shell para usar o nvm
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# Instalar Node.js v18 (que inclui o npm)
+nvm install 18
+```
 
 ## 2. Clonagem e Configuração Inicial
 
