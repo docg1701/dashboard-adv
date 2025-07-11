@@ -1,0 +1,98 @@
+AO JUÍZO DA 12ª VARA FEDERAL DO JUIZADO ESPECIAL CÍVEL DA SEÇÃO JUDICIÁRIA DO MARANHÃO
+
+Processo nº: 1014335-28.2022.4.01.3700 
+
+IVALDO PEREIRA LIMA, já devidamente qualificado nos autos do processo em epígrafe, vem respeitosamente à presença deste Juízo, por meio de sua procuradora constituída, inconformado com a r. sentença proferida (ID 2188618692), interpor o presente
+
+RECURSO INOMINADO
+
+Com fulcro no art. 41 e seguintes da Lei nº 9.099/95, requerendo o recebimento do presente recurso e a remessa dos autos, com as razões recursais anexas, à Egrégia Turma Recursal, para que, ao final, seja dado provimento ao apelo.
+
+Nestes termos,
+Pede deferimento.
+
+São Luís - MA, 12 de julho de 2025
+
+Maruzza Lessandra Fonseca Teixeira
+OAB/MA 11810
+
+RAZÕES DO RECURSO INOMINADO
+
+Recorrente: IVALDO PEREIRA LIMA
+Recorrido: INSTITUTO NACIONAL DO SEGURO SOCIAL – INSS
+
+
+Processo nº: 1014335-28.2022.4.01.3700 
+
+
+Origem: 12ª Vara Federal do Juizado Especial Cível da SJMA 
+
+COLENDA TURMA,
+EMÉRITOS JULGADORES,
+
+I. DA SENTENÇA RECORRIDA E DO OBJETO DO RECURSO
+
+O Recorrente ajuizou a presente ação visando a revisão de seu benefício de 
+
+Aposentadoria por Tempo de Contribuição (NB 180954603-3), concedido em 31/10/2016, para que fossem corretamente computados períodos de atividade especial, salários de contribuição e vínculos empregatícios ignorados pela autarquia no momento do cálculo da Renda Mensal Inicial (RMI).
+
+Instruído o feito, sobreveio a r. sentença (ID 2188618692) , a qual julgou 
+
+improcedente o pedido inicial , sob os seguintes fundamentos principais: (i) não caracterização da atividade como especial, por exposição ao agente nocivo ruído no limite de 85dB, e não acima dele; 
+
+cite_start ausência de documento próprio (Certidão de Tempo de Contribuição) para comprovação do vínculo com o Município de Zé Doca ; e (https://www.google.com/search?q=iii) que o recálculo do benefício, considerando as demais alegações, resultaria em RMI inferior àquela já implantada pelo INSS.
+
+Contudo, data maxima venia, a r. sentença merece reforma, pois incorreu em erro de julgamento (error in judicando) ao interpretar restritivamente a legislação previdenciária sobre o agente nocivo ruído e ao deixar de valorar corretamente o conjunto probatório dos autos, em especial as anotações em CTPS e no CNIS, que demonstram o direito do Recorrente a uma RMI superior, conforme se demonstrará a seguir.
+
+II. DAS RAZÕES DA REFORMA
+
+II.1. Do Equívoco na Análise do Tempo de Serviço Especial - Agente Nocivo Ruído
+
+A r. sentença afastou o enquadramento especial dos períodos de 
+
+08/02/2010 a 28/01/2011 (Tomé Engenharia S/A) e a partir de 16/01/2012 (Locar Guindaste e Transportes Intermodais S/A), ao argumento de que a exposição a ruído no patamar de 85 dB(A), conforme PPPs (ID 1001035250) , não seria "superior" ao limite de tolerância, mas estritamente igual, não ensejando a contagem diferenciada.
+
+Tal entendimento, contudo, representa um rigor formal excessivo e destoa da finalidade protetiva da norma previdenciária. A partir de 19/11/2003, com o Decreto nº 4.882/2003, a exposição ao nível de 85 dB(A) passou a ser considerada nociva à saúde. Considerar que a exposição a exatamente 85 dB(A) não caracteriza a especialidade, por não ser "superior" a este nível, é uma interpretação que não se coaduna com o princípio do in dubio pro misero.
+
+Ademais, a própria inicial trouxe à colação jurisprudência que relativiza a exatidão matemática das medições de ruído, reconhecendo a existência de margens de erro nos aparelhos e a impossibilidade técnica de aferir com precisão absoluta a prejudicialidade de níveis sonoros muito próximos ao limite legal.
+
+Os PPPs apresentados (ID 1001035250) são documentos hábeis que comprovam a exposição habitual e permanente ao agente nocivo ruído em nível igual ao limite de tolerância estabelecido pela legislação de regência, sendo suficiente para o reconhecimento do tempo de serviço especial e a sua conversão para tempo comum pelo fator 1,4, conforme requerido na exordial.
+
+
+II.2. Do Equívoco na Valoração das Provas - Vínculos e Remunerações não Computados
+
+A sentença também errou ao não reconhecer vínculos e remunerações devidamente comprovados nos autos, resultando em um cálculo de RMI equivocado.
+
+Primeiramente, quanto ao vínculo com o Município de Zé Doca (01/04/2001 a 30/10/2001), a sentença afastou o pedido por ausência de CTC. Ocorre que o próprio CNIS do Autor (ID 1001018785) registra a existência de 6 contribuições no referido período, o que constitui prova suficiente para o cômputo do tempo e das remunerações.
+
+Da mesma forma, quanto ao vínculo com MURILO GAGO & CIA LTDA (20/05/1976 a 31/01/1980), a CTPS do Recorrente (ID 1001007286, fl. 5)  comprova a existência e a duração do contrato de trabalho. A eventual ausência de recolhimentos por parte do empregador é responsabilidade deste, não podendo penalizar o segurado, conforme o Enunciado nº 18 do CRSS e a presunção de veracidade das anotações em CTPS (Súmula 12, TST).
+
+Por fim, a sentença reconheceu o direito ao cômputo do aumento salarial na empresa 
+
+POSTO DE TAXI 15 DE NOVEMBRO LTDA a partir de 01/01/2016, mas concluiu, de forma equivocada, que o recálculo resultaria em uma RMI inferior à concedida. Tal conclusão contrasta com a planilha de cálculo apresentada na inicial (ID 1001007270), que, ao considerar todos os períodos e salários corretos, apurou uma RMI devida de R$ 2.537,19 , substancialmente superior à RMI de R$ 2.138,34 paga pelo INSS.
+
+Dessa forma, a valoração do conjunto probatório foi inadequada, devendo ser reformada a decisão para que todos os períodos e remunerações comprovados sejam devidamente integrados ao cálculo do benefício do Recorrente, com o consequente ajuste da RMI.
+
+III. DOS PEDIDOS
+
+Em face do exposto, requer o Recorrente:
+
+a) O recebimento e processamento do presente Recurso Inominado;
+
+b) Que seja conhecido e PROVIDO o presente recurso para REFORMAR a r. sentença recorrida, julgando TOTALMENTE PROCEDENTE o pedido inicial para:
+b.1) RECONHECER como tempo de serviço especial os períodos de 08/02/2010 a 28/11/2011 e de 16/01/2012 a 17/09/2012, com a devida conversão em tempo comum;
+b.2) DETERMINAR a averbação dos vínculos e remunerações não computados, notadamente os referentes ao Município de Zé Doca (01/04/2001 a 30/10/2001) e à empresa Murilo Gago & Cia Ltda (20/05/1976 a 31/01/1980);
+b.3) 
+
+REVISAR o benefício de Aposentadoria por Tempo de Contribuição (NB 180954603-3), recalculando a Renda Mensal Inicial (RMI) para o valor de R$ 2.537,19 , ou outro valor a ser apurado em liquidação, a contar da Data de Entrada do Requerimento - DER (31/10/2016);
+
+
+b.4) CONDENAR o INSS ao pagamento das parcelas vencidas e vincendas, devidamente corrigidas monetariamente e acrescidas de juros de mora, conforme Manual de Cálculos da Justiça Federal ou entendimento consolidado aplicável.
+
+Nestes Termos,
+Pede Deferimento.
+
+São Luís - MA, 12 de julho de 2025
+
+Maruzza Lessandra Fonseca Teixeira
+OAB/MA 11810
