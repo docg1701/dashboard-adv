@@ -73,6 +73,34 @@ const moduleRegistry: ModuleRegistry = {
       },
     ],
   },
+  recursoJudicial: { // New module
+    name: 'Recurso Judicial',
+    basePath: '/recurso-judicial',
+    navIcon: ArticleIcon, // Using the same icon as other document modules
+    navText: 'Recurso Judicial',
+    adminOnly: false,
+    routes: [
+      {
+        path: '/',
+        component: React.lazy(() => import('../pages/PaginaRecursoJudicial')),
+        exact: true,
+      },
+    ],
+  },
+  analiseDocsMedicos: {
+    name: 'Análise de Documentação Médica',
+    basePath: '/analise-docs-medicos',
+    navIcon: ArticleIcon,
+    navText: 'Análise Docs',
+    adminOnly: false,
+    routes: [
+      {
+        path: '/',
+        component: React.lazy(() => import('../pages/PaginaAnaliseDocsMedicos')),
+        exact: true,
+      },
+    ],
+  },
   /*
   systemInfo: {
     name: 'System Info',

@@ -39,7 +39,7 @@ const MuiAppBar = styled(MuiAppBarCore, {
   }),
 }));
 
-const MuiDrawer = styled(MuiDrawerCore, { shouldForwardProp: (prop) => prop !== 'open' })(
+const MuiDrawer = styled(MuiDrawerCore, { shouldForwardProp: (prop) => prop !== 'open' && prop !== 'variantProp' })(
   ({ theme, open, variantProp }: { theme: Theme, open: boolean, variantProp?: string }) => ({ // Added variantProp to pass isSmallScreen
     '& .MuiDrawer-paper': {
       position: 'relative', // Default for permanent

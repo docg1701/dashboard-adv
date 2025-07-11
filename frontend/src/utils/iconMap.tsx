@@ -5,6 +5,7 @@ import React from 'react';
 // Add more imports here as new icons are needed for future modules
 import HomeIcon from '@mui/icons-material/Home';
 import InfoIcon from '@mui/icons-material/Info';
+import ArticleIcon from '@mui/icons-material/Article';
 // import MemoryIcon from '@mui/icons-material/Memory'; // Example for future
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'; // Default fallback icon
 
@@ -14,6 +15,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline'; // Default fallba
 const iconMap: { [key: string]: React.ElementType } = {
   Home: HomeIcon,
   Info: InfoIcon,
+  Article: ArticleIcon,
   // Memory: MemoryIcon, // Example
   // Add other mappings here
 };

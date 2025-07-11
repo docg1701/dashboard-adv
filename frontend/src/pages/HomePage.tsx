@@ -34,7 +34,7 @@ const HomePage: React.FC = () => {
                       )}
                       <CardContent sx={{ flexGrow: 1, p:0, '&:last-child': { pb: 0 } }}>
                         <Typography gutterBottom variant="h5" component="div">
-                          {module.navText}
+                          {module.navText || module.name}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
                           {module.name}
