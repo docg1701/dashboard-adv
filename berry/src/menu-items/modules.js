@@ -1,8 +1,8 @@
 // assets
-import { IconHelp } from '@tabler/icons-react';
+import { IconHelp, IconSitemap, IconFileText, IconZoomCheck } from '@tabler/icons-react';
 
 // constant
-const icons = { IconHelp };
+const icons = { IconHelp, IconSitemap, IconFileText, IconZoomCheck };
 
 // ==============================|| MODULES MENU ITEMS ||============================== //
 
@@ -24,7 +24,7 @@ const modules = {
       title: 'Impugnação de Laudo',
       type: 'item',
       url: '/impugnacao-laudo',
-      icon: icons.IconHelp,
+      icon: icons.IconSitemap,
       breadcrumbs: false
     },
     {
@@ -32,7 +32,7 @@ const modules = {
       title: 'Recurso Judicial',
       type: 'item',
       url: '/recurso-judicial',
-      icon: icons.IconHelp,
+      icon: icons.IconFileText,
       breadcrumbs: false
     },
     {
@@ -40,7 +40,7 @@ const modules = {
       title: 'Análise Docs',
       type: 'item',
       url: '/analise-docs-medicos',
-      icon: icons.IconHelp,
+      icon: icons.IconZoomCheck,
       breadcrumbs: false
     }
   ]

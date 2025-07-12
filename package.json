@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@google/gemini-cli": "github:google-gemini/gemini-cli"
+  }
+}

@@ -4,15 +4,15 @@ import { Link as RouterLink } from 'react-router-dom';
 import Link from '@mui/material/Link';
 
 // project imports
-import { DASHBOARD_PATH } from 'config';
 import Logo from 'ui-component/Logo';
+import horizontalLogo from 'assets/images/iamlogohorizontal.png';
 
 // ==============================|| MAIN LOGO ||============================== //
 
 export default function LogoSection() {
   return (
     <Link component={RouterLink} to="/" aria-label="theme-logo">
-      <Logo />
+      <Logo logo={horizontalLogo} width="100" />
     </Link>
   );
 }
